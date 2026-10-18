@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.replaylab/
+.env
+node_modules/
+dist/
+*.egg-info/
+*.tsbuildinfo
