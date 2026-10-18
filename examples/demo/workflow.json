@@ -1,0 +1,187 @@
+{
+  "schema_version": "0.1",
+  "title": "项目创建演示（手工示例，无视频证据）",
+  "start_url": "http://127.0.0.1:8877",
+  "allowed_origins": [
+    "http://127.0.0.1:8877"
+  ],
+  "parameters": {},
+  "preconditions": [
+    "先启动 examples/demo 的本地演示服务；本示例为手工流程，不代表视频识别结果。"
+  ],
+  "uncertainties": [],
+  "steps": [
+    {
+      "id": "step_001",
+      "action": "fill",
+      "description": "填写项目名称",
+      "source": {
+        "start_ms": 0,
+        "end_ms": 2000,
+        "frame_ids": [
+          "frame_000"
+        ]
+      },
+      "target": {
+        "description": "项目名称",
+        "strategy": "label",
+        "value": "项目名称",
+        "role": null
+      },
+      "value": "ReplayLab",
+      "confidence": 1.0,
+      "status": "needs_review",
+      "sensitive": false,
+      "verification": {
+        "type": "value",
+        "target": {
+          "description": "项目名称",
+          "strategy": "label",
+          "value": "项目名称",
+          "role": null
+        },
+        "expected": "ReplayLab"
+      }
+    },
+    {
+      "id": "step_002",
+      "action": "select",
+      "description": "选择高优先级",
+      "source": {
+        "start_ms": 2000,
+        "end_ms": 4000,
+        "frame_ids": [
+          "frame_001"
+        ]
+      },
+      "target": {
+        "description": "优先级",
+        "strategy": "label",
+        "value": "优先级",
+        "role": null
+      },
+      "value": "高",
+      "confidence": 1.0,
+      "status": "needs_review",
+      "sensitive": false,
+      "verification": {
+        "type": "value",
+        "target": {
+          "description": "优先级",
+          "strategy": "label",
+          "value": "优先级",
+          "role": null
+        },
+        "expected": "高"
+      }
+    },
+    {
+      "id": "step_003",
+      "action": "check",
+      "description": "启用提醒",
+      "source": {
+        "start_ms": 4000,
+        "end_ms": 6000,
+        "frame_ids": [
+          "frame_002"
+        ]
+      },
+      "target": {
+        "description": "启用提醒",
+        "strategy": "label",
+        "value": "启用提醒",
+        "role": null
+      },
+      "value": null,
+      "confidence": 1.0,
+      "status": "needs_review",
+      "sensitive": false,
+      "verification": {
+        "type": "checked",
+        "target": {
+          "description": "启用提醒",
+          "strategy": "label",
+          "value": "启用提醒",
+          "role": null
+        },
+        "expected": null
+      }
+    },
+    {
+      "id": "step_004",
+      "action": "click",
+      "description": "创建项目",
+      "source": {
+        "start_ms": 6000,
+        "end_ms": 8000,
+        "frame_ids": [
+          "frame_003"
+        ]
+      },
+      "target": {
+        "description": "创建项目按钮",
+        "strategy": "role",
+        "value": "创建项目",
+        "role": "button"
+      },
+      "value": null,
+      "confidence": 1.0,
+      "status": "needs_review",
+      "sensitive": true,
+      "verification": {
+        "type": "text",
+        "target": {
+          "description": "创建状态",
+          "strategy": "text",
+          "value": "已创建 1 个项目",
+          "role": null
+        },
+        "expected": "已创建 1 个项目"
+      }
+    },
+    {
+      "id": "step_005",
+      "action": "fill",
+      "description": "搜索创建的项目",
+      "source": {
+        "start_ms": 8000,
+        "end_ms": 10000,
+        "frame_ids": [
+          "frame_004"
+        ]
+      },
+      "target": {
+        "description": "搜索项目",
+        "strategy": "label",
+        "value": "搜索项目",
+        "role": null
+      },
+      "value": "ReplayLab",
+      "confidence": 1.0,
+      "status": "needs_review",
+      "sensitive": false,
+      "verification": {
+        "type": "value",
+        "target": {
+          "description": "搜索项目",
+          "strategy": "label",
+          "value": "搜索项目",
+          "role": null
+        },
+        "expected": "ReplayLab"
+      }
+    }
+  ],
+  "postconditions": [
+    {
+      "type": "visible",
+      "target": {
+        "description": "最终项目",
+        "strategy": "text",
+        "value": "ReplayLab · 高优先级 · 提醒已开启",
+        "role": null
+      },
+      "expected": null
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ReplayLab 项目演示</title>
+<style>body{font:16px system-ui;background:#f3f6f2;color:#26402f;margin:60px auto;max-width:680px;padding:20px}h1{font-size:28px}form,section{background:white;padding:28px;border:1px solid #d8e3d8;border-radius:12px;margin:20px 0}label{display:block;margin:16px 0}input:not([type=checkbox]),select{display:block;padding:10px;margin-top:8px;width:90%;font:inherit;border:1px solid #bdcebf;border-radius:5px}button{padding:12px 24px;background:#316444;color:white;border:0;border-radius:6px;font:inherit}li{padding:14px}</style>
+<h1>项目工作台</h1><p>ReplayLab 的本地可控演示页面。数据只保存在当前页面内存中。</p>
+<form id="form"><h2>新建项目</h2><label for="name">项目名称</label><input id="name" required><label for="priority">优先级</label><select id="priority"><option>普通</option><option>高</option></select><label><input id="notify" type="checkbox"> 启用提醒</label><button>创建项目</button></form>
+<section><h2>项目列表</h2><label>搜索项目<input id="search"></label><p id="status" role="status">尚未创建项目</p><ul id="projects"></ul></section>
+<script>
+const projects = [];
+const $ = id => document.getElementById(id);
+function render() {
+  $('projects').replaceChildren();
+  projects.filter(p => p.name.includes($('search').value)).forEach(p => {
+    const li = document.createElement('li'); li.textContent = `${p.name} · ${p.priority}优先级 · ${p.notify ? '提醒已开启' : '无提醒'}`; $('projects').append(li);
+  });
+}
+$('form').addEventListener('submit', event => { event.preventDefault(); projects.push({ name: $('name').value, priority: $('priority').value, notify: $('notify').checked }); $('status').textContent = `已创建 ${projects.length} 个项目`; render(); });
+$('search').addEventListener('input', render);
+</script></html>
