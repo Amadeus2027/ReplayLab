@@ -15,6 +15,7 @@ def analyze(store: Store, task_id: str, source: str, start_url: str) -> None:
         store.status(task_id, status="acquiring", error=None)
         stage = perf_counter()
         media = acquire(source, path)
+        store.status(task_id, media_path=str(media))
         timings["acquire_seconds"] = round(perf_counter() - stage, 3)
         store.status(task_id, status="extracting")
         stage = perf_counter()

@@ -6,10 +6,14 @@
 | FFmpeg | https://ffmpeg.org/ | 直接调用系统 CLI 解码、scene 检测和定点抽帧 |
 | Playwright | https://github.com/microsoft/playwright-python | 浏览器定位、动作、自动等待、断言、截图与演示录制 |
 | React Flow | https://github.com/xyflow/xyflow | 直接使用节点画布、连线、缩放控件 |
+| Lucide | https://github.com/lucide-icons/lucide | 深色工作台的动作、导航及状态图标，避免自绘图标体系 |
 | React / Vite | https://github.com/facebook/react / https://github.com/vitejs/vite | 工作台与构建 |
 | FastAPI / Pydantic | https://github.com/fastapi/fastapi / https://github.com/pydantic/pydantic | 本机服务、输入约束与协议 Schema |
 | OpenAI Python SDK | https://github.com/openai/openai-python | OpenAI 兼容视觉接口，不重复实现 HTTP SDK |
 | Typer | https://github.com/fastapi/typer | CLI 参数、帮助和审核提示 |
+| python-multipart | https://github.com/Kludex/python-multipart | FastAPI 视频上传表单解析 |
+
+交互参考 [n8n](https://n8n.io/) 的流程画布和 [Gumloop](https://www.gumloop.com/) 的 Agent/工作流呈现。借鉴信息层级与交互模式，没有复制其品牌资源或业务源码。
 
 自研范围仅为证据选取与关联、视觉编译提示和校验、语义目标适配、受约束工作流解释器、审核状态和验证后导出。没有复制上游项目源码。
 

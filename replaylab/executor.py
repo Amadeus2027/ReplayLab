@@ -85,6 +85,8 @@ def execute(
         for step in resolved.steps:
             if step.action == "navigate" and origin(step.value) not in allowed:
                 raise NeedsReview(f"{step.id}: navigation is outside allowed origins")
+        report["status"] = "running"
+        write_json(output / "report.json", report)
         with sync_playwright() as playwright:
             import os
 
@@ -112,8 +114,9 @@ def execute(
             page.on("popup", lambda popup: popup.close())
             page.goto(resolved.start_url, wait_until="domcontentloaded")
             for step in resolved.steps:
-                entry = {"id": step.id, "status": "failed"}
+                entry = {"id": step.id, "status": "running"}
                 report["steps"].append(entry)
+                write_json(output / "report.json", report)
                 stage = perf_counter()
                 try:
                     if step.action == "navigate":
@@ -138,6 +141,7 @@ def execute(
                     verify(page, step.verification)
                     entry["status"] = "passed"
                 except Exception as exc:
+                    entry["status"] = "failed"
                     entry["error"] = str(exc)
                     raise
                 finally:
@@ -148,6 +152,8 @@ def execute(
                         entry["screenshot"] = screenshot
                     except Exception:
                         pass  # Keep the original execution error if the page has already closed.
+                    report["seconds"] = round(perf_counter() - started, 3)
+                    write_json(output / "report.json", report)
             for assertion in resolved.postconditions:
                 verify(page, assertion)
             report["status"] = "passed"

@@ -6,6 +6,10 @@
 
 **已验证本地手工工作流的执行、断言失败停止、Skill 导出及脚本重放；尚未接入实际视觉模型验证视频识别。**
 
+![ReplayLab 深色工作台：视频对应流程与 Agent 代操作](docs/assets/replaylab-workbench.png)
+
+黑色流程画布展示视频对应步骤，右侧查看画面证据；确认后交给 Agent 代操作，执行通过即可下载 Skill。截图为明确标注的手工示例。
+
 ```bash
 uv sync --extra dev --locked
 source .venv/bin/activate
