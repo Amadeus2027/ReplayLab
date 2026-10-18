@@ -1,13 +1,25 @@
 """Loopback-only workbench API. Mutations require a per-install bearer token."""
 
 import json
+import re
 import secrets
+import shutil
 from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock
 from uuid import uuid4
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -106,10 +118,17 @@ def create_app(store: Store | None = None) -> FastAPI:
 
     @app.get("/api/tasks", dependencies=auth)
     def tasks():
-        return [
-            json.loads(path.read_text())
-            for path in sorted(store.root.glob("*/task.json"), reverse=True)
-        ]
+        result = []
+        for path in sorted(
+            store.root.glob("*/task.json"), key=lambda p: p.stat().st_mtime, reverse=True
+        ):
+            item = json.loads(path.read_text())
+            workflow_path = path.parent / "workflow.json"
+            if workflow_path.exists():
+                workflow = json.loads(workflow_path.read_text())
+                item.update(title=workflow["title"], step_count=len(workflow["steps"]))
+            result.append(item)
+        return result
 
     @app.post("/api/validate", dependencies=auth)
     def validate_workflow(workflow: Workflow):
@@ -126,10 +145,50 @@ def create_app(store: Store | None = None) -> FastAPI:
         background.add_task(background_analysis, task_id, body, lock)
         return {"id": task_id}
 
+    @app.post("/api/tasks/upload", dependencies=auth, status_code=202)
+    def upload_task(
+        background: BackgroundTasks, video: UploadFile = File(), start_url: str = Form()
+    ):
+        try:
+            origin(start_url)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        suffix = Path(video.filename or "video.mp4").suffix.lower()
+        if suffix not in {".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v"}:
+            raise HTTPException(422, "请选择 MP4、MOV、WebM、MKV、AVI 或 M4V 视频")
+        task_id, path = store.create(video.filename or "上传的视频")
+        media = path / f"input{suffix}"
+        size = 0
+        try:
+            with media.open("wb") as handle:
+                while chunk := video.file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > 200 * 1024 * 1024:
+                        raise HTTPException(413, "视频大小不能超过 200 MB")
+                    handle.write(chunk)
+            if size == 0:
+                raise HTTPException(422, "视频文件为空")
+        except Exception:
+            shutil.rmtree(path)
+            raise
+        finally:
+            video.file.close()
+        lock = reserve(task_id)
+        background.add_task(
+            background_analysis,
+            task_id,
+            AnalyzeRequest(source=str(media), start_url=start_url),
+            lock,
+        )
+        return {"id": task_id}
+
     @app.get("/api/tasks/{task_id}", dependencies=auth)
     def detail(task_id: str):
         path = task_path(task_id)
         result = json.loads((path / "task.json").read_text())
+        result["has_media"] = bool(
+            result.get("media_path") and Path(result["media_path"]).is_file()
+        )
         for name, filename in {
             "workflow": "workflow.json",
             "evidence": "frames.json",
@@ -139,6 +198,14 @@ def create_app(store: Store | None = None) -> FastAPI:
             if (path / filename).exists():
                 result[name] = json.loads((path / filename).read_text())
         return result
+
+    @app.get("/api/tasks/{task_id}/media", dependencies=auth)
+    def media(task_id: str):
+        metadata = json.loads((task_path(task_id) / "task.json").read_text())
+        path = Path(metadata.get("media_path", ""))
+        if not path.is_file():
+            raise HTTPException(404, "原视频不可用")
+        return FileResponse(path)
 
     @app.put("/api/tasks/{task_id}/workflow", dependencies=auth)
     def save_workflow(task_id: str, workflow: Workflow):
@@ -177,12 +244,31 @@ def create_app(store: Store | None = None) -> FastAPI:
     @app.post("/api/tasks/{task_id}/export", dependencies=auth)
     def export(task_id: str):
         with mutation(task_id):
-            destination = store.root / "exports" / f"skill-{task_id}-{uuid4().hex[:6]}"
+            export_id = uuid4().hex[:6]
+            destination = store.root / "exports" / f"skill-{task_id}-{export_id}"
             try:
                 export_skill(task_path(task_id), destination)
             except (ValueError, FileNotFoundError) as exc:
                 raise HTTPException(409, str(exc)) from exc
-        return {"path": str(destination)}
+            shutil.make_archive(
+                str(destination), "zip", root_dir=destination.parent, base_dir=destination.name
+            )
+        return {
+            "path": str(destination),
+            "download_url": f"/api/tasks/{task_id}/exports/{export_id}",
+        }
+
+    @app.get("/api/tasks/{task_id}/exports/{export_id}", dependencies=auth)
+    def download(task_id: str, export_id: str):
+        task_path(task_id)
+        if not re.fullmatch(r"[a-f0-9]{6}", export_id):
+            raise HTTPException(404)
+        path = store.root / "exports" / f"skill-{task_id}-{export_id}.zip"
+        if not path.is_file():
+            raise HTTPException(404)
+        return FileResponse(
+            path, filename=f"replaylab-skill-{task_id}.zip", media_type="application/zip"
+        )
 
     @app.get("/api/tasks/{task_id}/assets/{kind}/{filename}", dependencies=auth)
     def asset(task_id: str, kind: str, filename: str):

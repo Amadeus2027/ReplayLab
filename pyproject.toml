@@ -17,6 +17,7 @@ dependencies = [
   "openai>=1.60,<3",
   "playwright>=1.49,<2",
   "yt-dlp>=2025.1",
+  "python-multipart>=0.0.20,<1",
 ]
 
 [project.optional-dependencies]

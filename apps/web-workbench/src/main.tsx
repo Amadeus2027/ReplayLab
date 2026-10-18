@@ -1,27 +1,89 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Background, Controls, ReactFlow, MarkerType } from "@xyflow/react";
-import type { Task, Workflow, Frame } from "./types";
+import {
+  ArrowDownToLine,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CircleCheck,
+  CircleHelp,
+  Clock3,
+  ExternalLink,
+  FileVideo,
+  Film,
+  Loader2,
+  Monitor,
+  Pencil,
+  Play,
+  Plus,
+  Search,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Workflow as WorkflowIcon,
+  X,
+} from "lucide-react";
+import { Dialog, CreateDialog, RunDialog } from "./dialogs";
+import {
+  WorkflowCanvas,
+  actionIcons,
+  actionNames,
+  timeLabel,
+} from "./WorkflowCanvas";
+import type { Task, Workflow, Frame, Step } from "./types";
 import "@xyflow/react/dist/style.css";
 import "./style.css";
 
-const labels: Record<string, string> = {
-  created: "已创建",
-  acquiring: "获取视频",
-  extracting: "提取画面",
-  compiling: "恢复步骤",
-  needs_review: "待审核",
-  approved: "已审核",
-  executing: "执行中",
-  passed: "已通过",
-  failed: "失败",
-  paused: "已暂停",
+const statusNames: Record<string, string> = {
+  created: "准备中",
+  acquiring: "正在读取视频",
+  extracting: "正在提取关键画面",
+  compiling: "正在整理操作流程",
+  needs_review: "等待你的确认",
+  approved: "可以执行",
+  executing: "Agent 执行中",
+  passed: "执行完成",
+  failed: "需要处理",
+  paused: "等待补充信息",
 };
+const processingStates = ["created", "acquiring", "extracting", "compiling"];
+function cleanTitle(title?: string) {
+  return (
+    title
+      ?.replace(
+        /（(?:手工|非模型|示例)[^）]*）|\((?:hand-authored|manual)[^)]*\)/gi,
+        "",
+      )
+      .trim() || "未命名流程"
+  );
+}
+function sourceName(source?: string) {
+  if (!source) return "操作演示视频";
+  try {
+    return new URL(source).hostname;
+  } catch {
+    return source.split(/[\\/]/).pop() || "操作演示视频";
+  }
+}
+function verificationText(step: Step) {
+  const check = step.verification;
+  if (check.type === "url") return `页面跳转至 ${check.expected}`;
+  if (check.type === "checked")
+    return `${check.target?.description || "对应选项"}已勾选`;
+  if (check.type === "value")
+    return `${check.target?.description || "输入内容"}与预期一致`;
+  if (check.type === "text") return `页面显示“${check.expected}”`;
+  return `确认${check.target?.description || "目标元素"}已出现`;
+}
 
 function App() {
   const [token, setToken] = useState(
     () => sessionStorage.getItem("replaylab-token") || "",
   );
+  const [connected, setConnected] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskId, setTaskId] = useState(
     () => new URLSearchParams(location.hash.slice(1)).get("task") || "",
@@ -29,55 +91,96 @@ function App() {
   const [task, setTask] = useState<Task>();
   const [workflow, setWorkflow] = useState<Workflow>();
   const [selected, setSelected] = useState(0);
-  const [draft, setDraft] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [source, setSource] = useState("");
-  const [startUrl, setStartUrl] = useState("");
-  const [params, setParams] = useState("{}");
-  const [confirmed, setConfirmed] = useState(false);
+  const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [modal, setModal] = useState<
+    "create" | "run" | "settings" | "edit" | "video" | null
+  >(null);
+  const [mediaUrl, setMediaUrl] = useState("");
+  const mediaRef = useRef("");
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  async function api(path: string, method = "GET", body?: unknown) {
-    const response = await fetch(`/api${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+  async function request(path: string, init?: RequestInit) {
+    const response = await fetch(
+      path.startsWith("/api") ? path : `/api${path}`,
+      {
+        ...init,
+        headers: { Authorization: `Bearer ${token}`, ...init?.headers },
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
-    const result = await response.json();
-    if (!response.ok)
+    );
+    if (!response.ok) {
+      const result = await response.json().catch(() => null);
+      if (response.status === 401)
+        throw new Error("请先在设置中连接本机服务。");
+      if (response.status === 409)
+        throw new Error(
+          typeof result?.detail === "string"
+            ? result.detail
+            : "请先完成流程确认，或等待当前任务结束。",
+        );
       throw new Error(
-        typeof result.detail === "string"
+        typeof result?.detail === "string"
           ? result.detail
-          : JSON.stringify(result.detail),
+          : "操作未完成，请检查输入或本机服务。",
       );
-    return result;
+    }
+    return response;
   }
-
-  async function refresh(updateWorkflow = false) {
-    const list = await api("/tasks");
-    setTasks(list);
-    if (taskId) {
-      const next: Task = await api(`/tasks/${taskId}`);
-      setTask(next);
-      if (updateWorkflow || (!dirty && !workflow && next.workflow))
-        setWorkflow(next.workflow);
+  async function api(path: string, method = "GET", body?: unknown) {
+    return (
+      await request(path, {
+        method,
+        ...(body !== undefined
+          ? {
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            }
+          : {}),
+      })
+    ).json();
+  }
+  function choose(id: string) {
+    if (dirty && !window.confirm("切换后将放弃尚未保存的步骤修改，继续吗？"))
+      return;
+    setTaskId(id);
+    setTask(undefined);
+    setWorkflow(undefined);
+    setSelected(0);
+    setDirty(false);
+    setNotice("");
+    location.hash = id ? `task=${id}` : "";
+  }
+  async function act(action: () => Promise<void>) {
+    setBusy(true);
+    setNotice("");
+    try {
+      await action();
+    } catch (error) {
+      setNotice(String(error).replace(/^Error: /, ""));
+    } finally {
+      setBusy(false);
     }
   }
-
+  async function refresh() {
+    setTasks(await api("/tasks"));
+    if (taskId) setTask(await api(`/tasks/${taskId}`));
+  }
   useEffect(() => {
     sessionStorage.setItem("replaylab-token", token);
   }, [token]);
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setConnected(false);
+      return;
+    }
     let active = true;
     const poll = async () => {
       try {
-        const list = await api("/tasks");
+        const list: Task[] = await api("/tasks");
         if (!active) return;
+        setConnected(true);
         setTasks(list);
         if (taskId) {
           const next: Task = await api(`/tasks/${taskId}`);
@@ -85,486 +188,768 @@ function App() {
           setTask(next);
           setWorkflow((current) => current || next.workflow);
         }
-      } catch (error) {
-        if (active) setNotice(String(error));
+      } catch {
+        if (active) setConnected(false);
       }
     };
     void poll();
-    const timer = setInterval(poll, 2500);
+    const timer = setInterval(poll, 1500);
     return () => {
       active = false;
       clearInterval(timer);
     };
-  }, [taskId, token]);
-
+  }, [token, taskId]);
   useEffect(() => {
-    setDraft(
-      workflow?.steps[selected]
-        ? JSON.stringify(workflow.steps[selected], null, 2)
-        : "",
-    );
-  }, [workflow, selected]);
-
-  function choose(id: string) {
-    if (dirty && !window.confirm("放弃尚未保存的修改并切换任务？")) return;
-    setTaskId(id);
-    setTask(undefined);
-    setWorkflow(undefined);
-    setSelected(0);
-    setDirty(false);
-    setConfirmed(false);
-    setParams("{}");
-    location.hash = `task=${id}`;
-  }
-
-  async function act(action: () => Promise<void>) {
-    setBusy(true);
-    setNotice("");
-    try {
-      await action();
-    } catch (error) {
-      setNotice(String(error));
-    } finally {
-      setBusy(false);
-    }
-  }
+    if (mediaRef.current) URL.revokeObjectURL(mediaRef.current);
+    mediaRef.current = "";
+    setMediaUrl("");
+    return () => {
+      if (mediaRef.current) URL.revokeObjectURL(mediaRef.current);
+    };
+  }, [taskId]);
 
   const step = workflow?.steps[selected];
-  const unapplied = !!step && draft !== JSON.stringify(step, null, 2);
-  const running =
-    busy ||
-    ["acquiring", "extracting", "compiling", "executing", "created"].includes(
-      task?.status || "",
-    );
-  const approved = workflow?.steps.every((item) => item.status === "approved");
-  const nodes = (workflow?.steps || []).map((item, index) => ({
-    id: item.id,
-    position: { x: 70, y: index * 115 },
-    data: {
-      label: `${String(index + 1).padStart(2, "0")} · ${item.description}\n${item.action} · ${labels[item.status]}${item.sensitive ? " · 敏感操作" : ""}`,
-    },
-    className: `flow-step ${index === selected ? "chosen" : ""}`,
-  }));
-  const edges = (workflow?.steps.slice(1) || []).map((item, index) => ({
-    id: `e-${item.id}`,
-    source: workflow!.steps[index].id,
-    target: item.id,
-    markerEnd: { type: MarkerType.ArrowClosed },
-  }));
+  const executing = task?.status === "executing";
+  const processing = processingStates.includes(task?.status || "");
+  const blocked = busy || executing || processing;
+  const demo = /手工|hand-authored/.test(
+    `${workflow?.title || ""} ${task?.source || ""}`,
+  );
+  const report =
+    dirty ||
+    ["needs_review", "approved"].includes(task?.status || "") ||
+    (executing && task?.report?.status !== "running")
+      ? undefined
+      : task?.report;
+  const passed =
+    report?.steps.filter((item) => item.status === "passed").length || 0;
+  const activeExecution = report?.steps.find(
+    (item) => item.status === "running",
+  );
   const frames =
     task?.evidence?.frames.filter((frame) =>
       step?.source.frame_ids.includes(frame.id),
     ) || [];
+  const currentResult = report?.steps.find((item) => item.id === step?.id);
+  const screenshotFrame = frames[frames.length - 1];
+  const workflowReady = !!workflow && !workflow.uncertainties.length;
+
+  async function create(source: string | File, startUrl: string) {
+    setBusy(true);
+    try {
+      let result;
+      if (typeof source === "string")
+        result = await api("/tasks", "POST", { source, start_url: startUrl });
+      else {
+        const data = new FormData();
+        data.append("video", source);
+        data.append("start_url", startUrl);
+        result = await (
+          await request("/tasks/upload", { method: "POST", body: data })
+        ).json();
+      }
+      choose(result.id);
+      setModal(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function run(parameters: Record<string, string>, sensitive: boolean) {
+    if (!workflow) return;
+    setBusy(true);
+    try {
+      if (dirty) {
+        const saved = await api(`/tasks/${taskId}/workflow`, "PUT", workflow);
+        setWorkflow(saved);
+        setDirty(false);
+      }
+      setWorkflow(await api(`/tasks/${taskId}/approve`, "POST"));
+      await api(`/tasks/${taskId}/execute`, "POST", {
+        parameters,
+        confirm_sensitive: sensitive,
+      });
+      setTask((current) =>
+        current
+          ? { ...current, status: "executing", report: undefined }
+          : current,
+      );
+      setModal(null);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function downloadSkill() {
+    const result = await api(`/tasks/${taskId}/export`, "POST");
+    const blob = await (await request(result.download_url)).blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `replaylab-skill-${taskId}.zip`;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setNotice("Skill 已下载。下次可以直接复用这份操作流程。");
+  }
+  async function showVideo() {
+    if (!task?.has_media) {
+      setNotice("这份流程没有可播放的原视频，可以查看已有画面证据。");
+      return;
+    }
+    if (!mediaUrl) {
+      const url = URL.createObjectURL(
+        await (await request(`/tasks/${taskId}/media`)).blob(),
+      );
+      mediaRef.current = url;
+      setMediaUrl(url);
+    }
+    setModal("video");
+  }
 
   return (
-    <div className="app">
+    <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-icon">↻</span> ReplayLab <small>0.1</small>
+        <button
+          className="brand"
+          onClick={() => choose("")}
+          aria-label="ReplayLab 首页"
+        >
+          <span className="brand-mark">
+            <Play size={15} fill="currentColor" />
+            <span />
+          </span>
+          <strong>
+            replaylab<span>0.1</span>
+          </strong>
+        </button>
+        <div className="workspace-picker">
+          <span className="avatar">R</span>
+          <div>
+            我的工作空间<small>个人空间</small>
+          </div>
+          <ChevronDown size={13} />
         </div>
-        <p className="muted">从演示到执行</p>
-        <label className="token">
-          本机访问令牌
+        <button className="new-workflow" onClick={() => setModal("create")}>
+          <Plus size={16} />
+          新建视频流程<span>＋</span>
+        </button>
+        <div className="sidebar-section">
+          <span>我的流程</span>
+          <span>{tasks.length.toString().padStart(2, "0")}</span>
+        </div>
+        <div className="sidebar-search">
+          <Search size={13} />
           <input
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="粘贴 .replaylab/token 内容"
+            aria-label="搜索流程"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="搜索流程"
           />
-        </label>
-        <div className="section-label">
-          工作流任务 <span>{tasks.length}</span>
         </div>
-        <nav>
-          {tasks.map((item) => (
-            <button
-              className={`task ${taskId === item.id ? "active" : ""}`}
-              key={item.id}
-              onClick={() => choose(item.id)}
-            >
-              <strong>{item.id}</strong>
-              <span>{labels[item.status] || item.status}</span>
-            </button>
-          ))}
+        <nav className="task-navigation" aria-label="我的视频流程">
+          {tasks
+            .filter((item) =>
+              `${item.title || ""} ${item.source}`.includes(search),
+            )
+            .map((item) => (
+              <button
+                key={item.id}
+                className={`task-link ${taskId === item.id ? "active" : ""}`}
+                onClick={() => choose(item.id)}
+              >
+                <WorkflowIcon size={14} />
+                <div>
+                  <strong>
+                    {item.title
+                      ? cleanTitle(item.title)
+                      : sourceName(item.source)}
+                  </strong>
+                  <small>
+                    <span className={`status-dot ${item.status}`} />
+                    {statusNames[item.status] || "视频流程"}
+                  </small>
+                </div>
+                {taskId === item.id && <span className="active-mark" />}
+              </button>
+            ))}
+          {!tasks.length && (
+            <p className="sidebar-empty">
+              你的第一份视频流程
+              <br />
+              会出现在这里。
+            </p>
+          )}
         </nav>
-        <div className="sidebar-note">
-          视频 → 证据 → 工作流 → Skill
-          <br />
-          本地服务 · 隔离浏览器执行
+        <div className="sidebar-bottom">
+          <a
+            href="https://github.com/Amadeus2027/ReplayLab/blob/feat/v0.1-core/docs/quickstart.md"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <CircleHelp size={15} />
+            使用指南
+            <ArrowUpRight size={12} />
+          </a>
+          <button onClick={() => setModal("settings")}>
+            <Settings2 size={15} />
+            设置
+            <span
+              className={`connection-dot ${connected ? "connected" : ""}`}
+            />
+          </button>
+          <div className="profile">
+            <span className="avatar">Y</span>
+            <div>
+              个人工作空间
+              <small>{connected ? "本机服务已连接" : "等待连接本机服务"}</small>
+            </div>
+            <span className="version">v0.1</span>
+          </div>
         </div>
       </aside>
-      <main>
-        <header>
-          <div>
-            <div className="eyebrow">VIDEO TO WORKFLOW</div>
-            <h1>把演示，变成下一次行动。</h1>
-            <p className="muted">
-              恢复操作步骤，核对画面证据，再执行你确认的流程。
-            </p>
+      <main className="main-shell">
+        <header className="topbar">
+          <div className="breadcrumb">
+            <span>我的工作空间</span>
+            <ChevronRight size={12} />
+            <span>{workflow ? "视频工作流" : "概览"}</span>
           </div>
-          <span className="version">LOCAL / v0.1</span>
+          <div className="topbar-right">
+            <span className="private-label">
+              <ShieldCheck size={12} />
+              仅自己可见
+            </span>
+            <a
+              className="icon-button"
+              href="https://github.com/Amadeus2027/ReplayLab"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="查看开源项目"
+            >
+              <ExternalLink size={15} />
+            </a>
+          </div>
         </header>
-        <form
-          className="source-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void act(async () => {
-              const result = await api("/tasks", "POST", {
-                source,
-                start_url: startUrl,
-              });
-              choose(result.id);
-            });
-          }}
-        >
-          <label>
-            视频来源
-            <input
-              required
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              placeholder="公开视频链接或服务端本地视频路径"
-            />
-          </label>
-          <label>
-            复现网页
-            <input
-              required
-              type="url"
-              value={startUrl}
-              onChange={(e) => setStartUrl(e.target.value)}
-              placeholder="https://example.com"
-            />
-          </label>
-          <button className="primary" disabled={busy || !token}>
-            分析视频 ↗
-          </button>
-        </form>
         {notice && (
-          <div className="notice" role="status">
-            {notice}
+          <div className="toast" role="status">
+            <CircleCheck size={16} />
+            <span>{notice}</span>
+            <button
+              className="icon-button"
+              onClick={() => setNotice("")}
+              aria-label="关闭提示"
+            >
+              <X size={14} />
+            </button>
           </div>
         )}
-        {task?.error && <div className="notice error">{task.error}</div>}
-        <div className="workspace-title">
-          <h2>{workflow?.title || "工作流工作台"}</h2>
-          <span className={`badge ${task?.status}`}>
-            {task ? labels[task.status] || task.status : "等待输入"}
-          </span>
-        </div>
         {!workflow ? (
-          <div className="empty">
-            <div className="empty-icon">⌘</div>
-            <h2>{task ? "正在准备工作流" : "从一段操作演示开始"}</h2>
-            <p>
-              {task
-                ? `当前阶段：${labels[task.status] || task.status}`
-                : "输入视频，或从左侧选择已有任务。模型生成后，操作步骤与画面证据会显示在这里。"}
-            </p>
-            <p className="muted">
-              支持点击、输入、选择、勾选、按键和页面导航。
-            </p>
+          <div className="home-screen">
+            {task ? (
+              <div className="processing-view">
+                <span className="hero-symbol">
+                  {processing ? (
+                    <Loader2 size={30} className="spin" />
+                  ) : (
+                    <Film size={30} />
+                  )}
+                </span>
+                <span className="eyebrow">VIDEO TO ACTION</span>
+                <h1>
+                  {processing
+                    ? "正在读懂你的操作演示"
+                    : "这段演示还需要一点处理"}
+                </h1>
+                <p>{statusNames[task.status] || "准备中"}</p>
+                {processing ? (
+                  <div className="analysis-stages">
+                    {["acquiring", "extracting", "compiling"].map(
+                      (state, index) => (
+                        <span
+                          className={
+                            processingStates.indexOf(task.status) >= index + 1
+                              ? "current"
+                              : ""
+                          }
+                          key={state}
+                        >
+                          {index + 1}
+                          <small>
+                            {["读取视频", "提取画面", "还原流程"][index]}
+                          </small>
+                        </span>
+                      ),
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <p className="inline-error">
+                      {task.error || "请检查视频来源和模型配置后重试。"}
+                    </p>
+                    <button
+                      className="secondary"
+                      onClick={() => setModal("create")}
+                    >
+                      重新提供视频
+                      <ArrowRight size={14} />
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="welcome">
+                <div className="welcome-kicker">
+                  <span />
+                  <span>WATCH. UNDERSTAND. REPLAY.</span>
+                </div>
+                <h1>
+                  视频里的操作，
+                  <br />
+                  <em>交给 Agent 来做。</em>
+                </h1>
+                <p>
+                  把演示变成清晰的操作流程。
+                  <br />
+                  看懂每一步，然后让 Agent 为你完成。
+                </p>
+                <button
+                  className="primary large"
+                  onClick={() => setModal("create")}
+                >
+                  <Plus size={17} />
+                  从一段视频开始
+                  <ArrowUpRight size={17} />
+                </button>
+                <div className="welcome-flow">
+                  <span>
+                    <FileVideo size={17} />
+                    提供视频
+                  </span>
+                  <i />
+                  <span>
+                    <WorkflowIcon size={17} />
+                    查看操作流程
+                  </span>
+                  <i />
+                  <span>
+                    <Sparkles size={17} />
+                    Agent 代操作
+                  </span>
+                </div>
+              </div>
+            )}
+            <div className="home-footnote">
+              <ShieldCheck size={13} />
+              流程经你确认后执行 · 关键操作需要授权
+            </div>
           </div>
         ) : (
           <>
-            <div className="toolbar">
-              <span>
-                {workflow.steps.length} 个步骤 ·{" "}
-                {task?.evidence
-                  ? `${(task.evidence.duration_ms / 1000).toFixed(1)}s 视频`
-                  : "导入流程 · 无视频证据"}
-              </span>
+            <div className="project-header">
               <div>
+                <div className="project-eyebrow">
+                  <span className="mini-icon">
+                    <WorkflowIcon size={12} />
+                  </span>
+                  视频工作流
+                  <span className="divider" />
+                  {demo ? "示例流程 · 手工编写" : "由视频还原"}
+                  {dirty && <span className="unsaved">有未保存修改</span>}
+                </div>
+                <h1>{cleanTitle(workflow.title)}</h1>
+                <div className="project-meta">
+                  <span>
+                    <Film size={12} />
+                    {sourceName(task?.source)}
+                  </span>
+                  <span>
+                    <Clock3 size={12} />
+                    {task?.evidence
+                      ? timeLabel(task.evidence.duration_ms)
+                      : "无原视频"}
+                  </span>
+                  <span>{workflow.steps.length} 个操作步骤</span>
+                </div>
+              </div>
+              <div className="project-actions">
+                <span className={`run-status ${dirty ? "" : task?.status}`}>
+                  <span className={`status-dot ${dirty ? "" : task?.status}`} />
+                  {dirty
+                    ? "流程已修改"
+                    : statusNames[task?.status || "needs_review"]}
+                </span>
                 <button
-                  disabled={running || !dirty || unapplied}
-                  onClick={() =>
-                    void act(async () => {
-                      const updated = await api(
-                        `/tasks/${taskId}/workflow`,
-                        "PUT",
-                        workflow,
-                      );
-                      setWorkflow(updated);
-                      setDirty(false);
-                      setConfirmed(false);
-                      await refresh();
-                      setNotice("已保存；修改后的步骤需要重新审核。");
-                    })
-                  }
-                >
-                  保存修改{dirty ? " *" : ""}
-                </button>
-                <button
+                  className="secondary small"
                   disabled={
-                    running ||
-                    dirty ||
-                    !!workflow.uncertainties.length ||
-                    approved
+                    busy || executing || dirty || report?.status !== "passed"
                   }
-                  onClick={() =>
-                    void act(async () => {
-                      if (
-                        !window.confirm(
-                          "我已核对所有步骤、证据、前置条件和允许访问的网站，确认审核通过。",
-                        )
-                      )
-                        return;
-                      setWorkflow(
-                        await api(`/tasks/${taskId}/approve`, "POST"),
-                      );
-                      await refresh();
-                    })
-                  }
+                  onClick={() => void act(downloadSkill)}
                 >
-                  审核通过
+                  <ArrowDownToLine size={14} />
+                  保存为 Skill
                 </button>
               </div>
             </div>
-            <div className="workspace">
-              <section className="graph">
-                <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  fitView
-                  nodesDraggable={false}
-                  nodesConnectable={false}
-                  onNodeClick={(_, node) => {
-                    if (
-                      unapplied &&
-                      !window.confirm("放弃尚未应用的步骤编辑？")
-                    )
-                      return;
-                    setSelected(
-                      workflow.steps.findIndex((item) => item.id === node.id),
-                    );
-                  }}
-                >
-                  <Background gap={20} color="#dce4e1" />
-                  <Controls showInteractive={false} />
-                </ReactFlow>
-              </section>
-              <section className="inspector">
-                <div className="section-label">
-                  步骤 {String(selected + 1).padStart(2, "0")} / 画面证据
-                </div>
-                <h3>{step?.description}</h3>
-                <p className="muted">
-                  {step &&
-                    `${(step.source.start_ms / 1000).toFixed(1)}–${(step.source.end_ms / 1000).toFixed(1)}s · 模型自评 ${Math.round(step.confidence * 100)}%（未经校准）`}
-                </p>
-                <div className="frames">
-                  {frames.map((frame) => (
-                    <EvidenceImage
-                      key={frame.id}
-                      frame={frame}
-                      taskId={taskId}
-                      token={token}
-                    />
-                  ))}
-                </div>
-                {!frames.length && (
-                  <p className="muted">此步骤没有可用的画面文件。</p>
-                )}
-                <label>
-                  步骤数据
-                  <textarea
-                    spellCheck={false}
-                    rows={15}
-                    value={draft}
-                    onChange={(e) => {
-                      setDraft(e.target.value);
-                      setDirty(true);
-                    }}
-                  />
-                </label>
-                <button
-                  disabled={running}
-                  onClick={() =>
-                    void act(async () => {
-                      const edited = JSON.parse(draft);
-                      const next = structuredClone(workflow);
-                      next.steps[selected] = edited;
-                      const validated = await api("/validate", "POST", next);
-                      setWorkflow(validated);
-                      setDirty(true);
-                      setNotice("步骤校验通过，已应用到本地流程。请保存修改。");
-                    })
-                  }
-                >
-                  应用步骤编辑
-                </button>
-                {unapplied && (
-                  <p className="muted">请先应用步骤编辑，再保存流程。</p>
-                )}
-              </section>
-            </div>
-            <section className="details">
-              <div>
-                <h3>运行条件与待确认项</h3>
-                <p className="muted">
-                  允许网站：{workflow.allowed_origins.join(", ")}
-                </p>
-                {workflow.preconditions.map((text, i) => (
-                  <p key={i}>□ {text}</p>
-                ))}
-                <label>
-                  待确认项（解决后删除对应行）
-                  <textarea
-                    rows={3}
-                    value={workflow.uncertainties.join("\n")}
-                    onChange={(e) => {
-                      setWorkflow({
-                        ...workflow,
-                        uncertainties: e.target.value
-                          .split("\n")
-                          .filter(Boolean),
-                      });
-                      setDirty(true);
-                    }}
-                  />
-                </label>
-                <details>
-                  <summary>编辑完整工作流（顺序、断言、参数与目标）</summary>
-                  <FullEditor
-                    workflow={workflow}
-                    onApply={(next) =>
-                      void act(async () => {
-                        const validated = await api("/validate", "POST", next);
-                        setWorkflow(validated);
-                        setSelected(0);
-                        setDirty(true);
-                      })
-                    }
-                  />
-                </details>
-              </div>
-              <div>
-                <h3>执行与导出</h3>
-                {Object.entries(workflow.parameters).map(([key, value]) => (
-                  <p className="muted" key={key}>
-                    {key}：{value}
-                  </p>
-                ))}
-                <label>
-                  本次参数（JSON 字符串映射）
-                  <textarea
-                    rows={3}
-                    value={params}
-                    onChange={(e) => setParams(e.target.value)}
-                  />
-                </label>
-                <label className="checkbox">
-                  <input
-                    type="checkbox"
-                    checked={confirmed}
-                    onChange={(e) => setConfirmed(e.target.checked)}
-                  />{" "}
-                  本次执行已获授权的敏感步骤
-                </label>
-                <div className="actions">
+            <div className="work-area">
+              <div className="canvas-column">
+                <WorkflowCanvas
+                  key={taskId}
+                  workflow={workflow}
+                  report={report}
+                  executing={executing}
+                  selected={selected}
+                  onSelect={setSelected}
+                />
+                <div className={`agent-dock ${executing ? "executing" : ""}`}>
+                  <span className="agent-avatar">
+                    <Sparkles size={19} />
+                  </span>
+                  <div className="agent-dock-copy">
+                    <strong>
+                      {executing
+                        ? "Agent 正在为你操作"
+                        : report?.status === "passed"
+                          ? "任务已完成，每一步都有验证"
+                          : report?.status === "failed" ||
+                              report?.status === "paused"
+                            ? "Agent 已停止，等待你处理"
+                            : "流程已就绪，剩下的交给 Agent"}
+                    </strong>
+                    <p>
+                      {executing
+                        ? activeExecution
+                          ? workflow.steps.find(
+                              (step) => step.id === activeExecution.id,
+                            )?.description
+                          : "正在准备独立浏览器会话…"
+                        : report?.status === "passed"
+                          ? `${passed} 个步骤全部完成 · 用时 ${report.seconds.toFixed(1)} 秒`
+                          : workflow.uncertainties.length
+                            ? `${workflow.uncertainties.length} 处内容需要你确认后再继续`
+                            : "按视频步骤代操作，并为你检查最终结果。"}
+                    </p>
+                    {executing && (
+                      <div className="execution-progress">
+                        <span
+                          style={{
+                            width: `${(passed / workflow.steps.length) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
                   <button
                     className="primary"
-                    disabled={running || dirty || !approved}
-                    onClick={() =>
-                      void act(async () => {
-                        await api(`/tasks/${taskId}/execute`, "POST", {
-                          parameters: JSON.parse(params),
-                          confirm_sensitive: confirmed,
-                        });
-                        await refresh();
-                      })
-                    }
+                    disabled={blocked || !workflowReady || !connected}
+                    onClick={() => setModal("run")}
                   >
-                    在新浏览器中执行 ↗
-                  </button>
-                  <button
-                    disabled={
-                      running || dirty || task?.report?.status !== "passed"
-                    }
-                    onClick={() =>
-                      void act(async () => {
-                        const result = await api(
-                          `/tasks/${taskId}/export`,
-                          "POST",
-                        );
-                        setNotice(`Skill 已导出至本机：${result.path}`);
-                      })
-                    }
-                  >
-                    导出 Skill
+                    {executing ? (
+                      <Loader2 size={15} className="spin" />
+                    ) : (
+                      <Play size={13} fill="currentColor" />
+                    )}
+                    {executing
+                      ? `${passed}/${workflow.steps.length}`
+                      : report?.status === "passed"
+                        ? "再次执行"
+                        : "让 Agent 执行"}
                   </button>
                 </div>
-                {task?.report && (
-                  <div className="report">
-                    <strong>执行结果：{labels[task.report.status]}</strong>
-                    <p>
-                      {task.report.seconds}s ·{" "}
-                      {
-                        task.report.steps.filter(
-                          (item) => item.status === "passed",
-                        ).length
-                      }
-                      /{workflow.steps.length} 步通过
-                    </p>
-                    {task.report.error && <pre>{task.report.error}</pre>}
+                {(report?.status === "failed" ||
+                  report?.status === "paused") && (
+                  <div className="execution-issue">
+                    <ShieldCheck size={14} />
+                    <div>
+                      本次操作未完成，Agent 已停止。
+                      <details>
+                        <summary>查看原因</summary>
+                        <pre>{report.error}</pre>
+                      </details>
+                      <small>
+                        重新执行将从第一步开始，请先核对是否已有操作生效。
+                      </small>
+                    </div>
                   </div>
                 )}
               </div>
-            </section>
+              <aside className="inspector" aria-label="步骤详情">
+                <div className="inspector-tabs">
+                  <span>步骤详情</span>
+                  <span>
+                    {String(selected + 1).padStart(2, "0")}
+                    <small>
+                      {" "}
+                      / {String(workflow.steps.length).padStart(2, "0")}
+                    </small>
+                  </span>
+                </div>
+                {step && (
+                  <>
+                    <div className="inspector-content">
+                      <div className="detail-heading">
+                        <span className={`detail-icon ${step.action}`}>
+                          {React.createElement(actionIcons[step.action], {
+                            size: 21,
+                            strokeWidth: 1.5,
+                          })}
+                        </span>
+                        <span className="subtle-badge">
+                          {actionNames[step.action]}
+                        </span>
+                        <button
+                          className="icon-button"
+                          aria-label="编辑当前步骤"
+                          disabled={blocked}
+                          onClick={() => setModal("edit")}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      </div>
+                      <h2>{step.description}</h2>
+                      <p className="detail-subtitle">
+                        {step.target?.description || "在目标网站中打开指定页面"}
+                      </p>
+                      <div className="evidence-heading">
+                        <span>视频对应画面</span>
+                        <span>
+                          <Clock3 size={11} />
+                          {timeLabel(step.source.start_ms)} –{" "}
+                          {timeLabel(step.source.end_ms)}
+                        </span>
+                      </div>
+                      <div className="evidence-preview">
+                        {screenshotFrame ? (
+                          <EvidenceImage
+                            taskId={taskId}
+                            token={token}
+                            frame={screenshotFrame}
+                          />
+                        ) : (
+                          <div className="no-evidence">
+                            <Film size={25} />
+                            <span>
+                              {demo
+                                ? "手工示例，没有视频证据"
+                                : "这一步暂没有可用画面"}
+                            </span>
+                          </div>
+                        )}
+                        {task?.has_media && (
+                          <button
+                            className="video-play"
+                            aria-label="播放对应视频"
+                            disabled={busy}
+                            onClick={() => void act(showVideo)}
+                          >
+                            <Play size={16} fill="currentColor" />
+                          </button>
+                        )}
+                        <span className="evidence-timestamp">
+                          {timeLabel(
+                            screenshotFrame?.timestamp_ms ||
+                              step.source.start_ms,
+                          )}
+                        </span>
+                      </div>
+                      {frames.length > 1 && (
+                        <div className="evidence-strip">
+                          {frames.map((frame) => (
+                            <div key={frame.id}>
+                              <EvidenceImage
+                                taskId={taskId}
+                                token={token}
+                                frame={frame}
+                              />
+                              <small>{timeLabel(frame.timestamp_ms)}</small>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="detail-divider" />
+                      <div className="detail-label">Agent 将完成</div>
+                      <div className="action-description">
+                        <span className="tiny-action-icon">
+                          {React.createElement(actionIcons[step.action], {
+                            size: 14,
+                          })}
+                        </span>
+                        <div>
+                          <strong>{step.description}</strong>
+                          {step.value && step.action !== "navigate" && (
+                            <span>
+                              {step.value.startsWith("${")
+                                ? "执行前由你提供内容"
+                                : `内容：${step.value}`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="verification">
+                        <CircleCheck size={15} />
+                        <div>
+                          <strong>完成后检查</strong>
+                          <p>{verificationText(step)}</p>
+                        </div>
+                      </div>
+                      {step.sensitive && (
+                        <div className="step-permission">
+                          <ShieldCheck size={14} />
+                          这一步需要你的执行授权
+                        </div>
+                      )}
+                      {currentResult?.status === "passed" && (
+                        <div className="step-result">
+                          <Check size={14} />
+                          本次执行已完成并验证
+                        </div>
+                      )}
+                      {currentResult?.screenshot && (
+                        <details className="result-screenshot">
+                          <summary>
+                            <Monitor size={13} />
+                            查看 Agent 操作后的画面
+                          </summary>
+                          <ProtectedImage
+                            key={`${currentResult.id}-${report?.seconds}`}
+                            path={`/api/tasks/${taskId}/assets/execution/${currentResult.screenshot}`}
+                            token={token}
+                            alt="Agent 执行后的页面截图"
+                          />
+                        </details>
+                      )}
+                      {workflow.uncertainties.length > 0 && (
+                        <div className="uncertainties">
+                          <h3>待你确认</h3>
+                          {workflow.uncertainties.map((text, index) => (
+                            <div key={index}>
+                              <p>{text}</p>
+                              <button
+                                disabled={blocked}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      "已核对并补全这处不确定内容？",
+                                    )
+                                  ) {
+                                    setWorkflow({
+                                      ...workflow,
+                                      uncertainties:
+                                        workflow.uncertainties.filter(
+                                          (_, i) => i !== index,
+                                        ),
+                                    });
+                                    setDirty(true);
+                                  }
+                                }}
+                              >
+                                已核对
+                                <Check size={12} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="step-pagination">
+                      <button
+                        className="icon-button"
+                        aria-label="上一步"
+                        disabled={selected === 0}
+                        onClick={() => setSelected((index) => index - 1)}
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      <span>
+                        步骤 {selected + 1} / {workflow.steps.length}
+                      </span>
+                      <button
+                        className="icon-button"
+                        aria-label="下一步"
+                        disabled={selected === workflow.steps.length - 1}
+                        onClick={() => setSelected((index) => index + 1)}
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </aside>
+            </div>
+            <footer className="workspace-footer">
+              <span>
+                <span
+                  className={`connection-dot ${connected ? "connected" : ""}`}
+                />
+                {connected ? "本机服务已连接" : "连接已断开，请检查设置"}
+              </span>
+              <span>
+                你来确认，Agent 来完成。<span className="footer-dot">·</span>
+                ReplayLab 0.1
+              </span>
+            </footer>
           </>
         )}
-        <footer>
-          ReplayLab · 开源演示复用实验室{" "}
-          <span>流程审核后执行 / 失败即停止</span>
-        </footer>
       </main>
+      {modal === "create" && (
+        <CreateDialog
+          connected={connected}
+          busy={busy}
+          onClose={() => setModal(null)}
+          onCreate={create}
+          onConnect={() => setModal("settings")}
+        />
+      )}
+      {modal === "run" && workflow && (
+        <RunDialog
+          workflow={workflow}
+          busy={busy}
+          onClose={() => setModal(null)}
+          onRun={run}
+        />
+      )}
+      {modal === "settings" && (
+        <ConnectionSettings
+          token={token}
+          connected={connected}
+          onSave={setToken}
+          onClose={() => setModal(null)}
+        />
+      )}
+      {modal === "edit" && workflow && step && (
+        <EditStep
+          step={step}
+          onClose={() => setModal(null)}
+          onSave={async (updated) => {
+            const next = structuredClone(workflow);
+            next.steps[selected] = updated;
+            const saved = await api(`/tasks/${taskId}/workflow`, "PUT", next);
+            setWorkflow(saved);
+            setDirty(false);
+            await refresh();
+            setNotice("步骤已保存，执行前会重新确认流程。");
+            setModal(null);
+          }}
+        />
+      )}
+      {modal === "video" && (
+        <Dialog title="视频中的这一步" onClose={() => setModal(null)} wide>
+          <video
+            ref={videoRef}
+            className="original-video"
+            src={mediaUrl}
+            controls
+            autoPlay
+            onLoadedMetadata={() => {
+              if (videoRef.current)
+                videoRef.current.currentTime =
+                  (step?.source.start_ms || 0) / 1000;
+            }}
+          />
+          <p className="dialog-description">
+            {step?.description} · {timeLabel(step?.source.start_ms || 0)}
+          </p>
+        </Dialog>
+      )}
     </div>
-  );
-}
-
-function FullEditor({
-  workflow,
-  onApply,
-}: {
-  workflow: Workflow;
-  onApply: (workflow: Workflow) => void;
-}) {
-  const [value, setValue] = useState(JSON.stringify(workflow, null, 2));
-  const [error, setError] = useState("");
-  useEffect(() => {
-    setValue(JSON.stringify(workflow, null, 2));
-  }, [workflow]);
-  return (
-    <>
-      <textarea
-        rows={14}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-      />
-      <button
-        onClick={() => {
-          try {
-            const next = JSON.parse(value);
-            if (
-              !next.steps?.length ||
-              !Array.isArray(next.uncertainties) ||
-              !Array.isArray(next.allowed_origins) ||
-              !Array.isArray(next.preconditions) ||
-              !next.parameters ||
-              !Array.isArray(next.postconditions)
-            )
-              throw new Error();
-            onApply(next);
-            setError("");
-          } catch {
-            setError("请检查工作流 JSON 和必要字段。");
-          }
-        }}
-      >
-        应用完整流程
-      </button>
-      {error && <p>{error}</p>}
-    </>
   );
 }
 
@@ -577,41 +962,251 @@ function EvidenceImage({
   taskId: string;
   token: string;
 }) {
+  return (
+    <ProtectedImage
+      path={`/api/tasks/${taskId}/assets/frames/${frame.path.split("/").pop()}`}
+      token={token}
+      alt={`视频 ${timeLabel(frame.timestamp_ms)} 的操作画面`}
+    />
+  );
+}
+function ProtectedImage({
+  path,
+  token,
+  alt,
+}: {
+  path: string;
+  token: string;
+  alt: string;
+}) {
   const [url, setUrl] = useState("");
   useEffect(() => {
     let objectUrl = "";
-    let active = true;
-    void fetch(
-      `/api/tasks/${taskId}/assets/frames/${frame.path.split("/").pop()}`,
-      { headers: { Authorization: `Bearer ${token}` } },
-    )
+    const controller = new AbortController();
+    setUrl("");
+    void fetch(path, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
       .then((response) => {
-        if (!response.ok) throw new Error("Frame unavailable");
+        if (!response.ok) throw new Error();
         return response.blob();
       })
       .then((blob) => {
-        if (active) {
+        if (!controller.signal.aborted) {
           objectUrl = URL.createObjectURL(blob);
           setUrl(objectUrl);
         }
       })
-      .catch(() => setUrl(""));
+      .catch(() => {});
     return () => {
-      active = false;
+      controller.abort();
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [taskId, token, frame.path]);
+  }, [path, token]);
+  return url ? (
+    <img src={url} alt={alt} />
+  ) : (
+    <div className="image-loading">
+      <Film size={20} />
+      <span>画面暂不可用</span>
+    </div>
+  );
+}
+function ConnectionSettings({
+  token,
+  connected,
+  onSave,
+  onClose,
+}: {
+  token: string;
+  connected: boolean;
+  onSave: (value: string) => void;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(token);
   return (
-    <figure>
-      {url && (
-        <a href={url} target="_blank" rel="noreferrer">
-          <img src={url} alt={`${frame.id} 的视频证据`} />
-        </a>
-      )}
-      <figcaption>
-        {frame.id} · {(frame.timestamp_ms / 1000).toFixed(2)}s
-      </figcaption>
-    </figure>
+    <Dialog title="连接与设置" eyebrow="WORKSPACE SETTINGS" onClose={onClose}>
+      <div className="settings-status">
+        <span className={`connection-dot ${connected ? "connected" : ""}`} />
+        {connected ? "本机服务已连接" : "尚未连接本机服务"}
+      </div>
+      <p className="dialog-description">
+        当前为本地开发版本。首次使用时连接 ReplayLab
+        服务，之后即可从视频生成流程并交给 Agent 执行。
+      </p>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave(value.trim());
+          onClose();
+        }}
+      >
+        <label>
+          本机连接令牌
+          <input
+            autoFocus
+            type="password"
+            autoComplete="off"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder="粘贴本机服务的连接令牌"
+          />
+          <small>
+            启动 replaylab serve 后，从终端提示的 token
+            文件获取。仅保存于当前浏览器会话。
+          </small>
+        </label>
+        <div className="settings-note">
+          <ShieldCheck size={16} />
+          <p>
+            模型密钥在本机服务配置，界面不会读取或显示。当前版本的真实视频识别仍需配置视觉模型。
+          </p>
+        </div>
+        <div className="dialog-footer">
+          <a
+            href="https://github.com/Amadeus2027/ReplayLab/blob/feat/v0.1-core/docs/quickstart.md"
+            target="_blank"
+            rel="noreferrer"
+          >
+            查看连接说明
+            <ArrowUpRight size={12} />
+          </a>
+          <button className="primary" type="submit">
+            保存连接
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+function EditStep({
+  step,
+  onSave,
+  onClose,
+}: {
+  step: Step;
+  onSave: (value: Step) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState<Step>(() => structuredClone(step));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <Dialog title="调整这一步" eyebrow="EDIT STEP" onClose={onClose}>
+      <form
+        onSubmit={async (event) => {
+          event.preventDefault();
+          setBusy(true);
+          try {
+            await onSave(value);
+          } catch {
+            setError("这一步的信息不完整，请检查后重试。");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <label>
+          这一步要做什么？
+          <input
+            required
+            value={value.description}
+            onChange={(event) =>
+              setValue({ ...value, description: event.target.value })
+            }
+          />
+        </label>
+        {value.target && (
+          <label>
+            画面中的操作对象
+            <input
+              required
+              value={value.target.description}
+              onChange={(event) =>
+                setValue({
+                  ...value,
+                  target: { ...value.target!, description: event.target.value },
+                })
+              }
+            />
+          </label>
+        )}
+        {value.value !== null && (
+          <label>
+            {value.action === "navigate" ? "打开的网址" : "操作内容"}
+            <input
+              value={value.value}
+              onChange={(event) =>
+                setValue({
+                  ...value,
+                  value: event.target.value,
+                  verification:
+                    value.verification.type === "value" &&
+                    value.verification.expected === value.value
+                      ? { ...value.verification, expected: event.target.value }
+                      : value.verification,
+                })
+              }
+            />
+          </label>
+        )}
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={value.sensitive}
+            onChange={(event) =>
+              setValue({ ...value, sensitive: event.target.checked })
+            }
+          />
+          <span>执行这一步前需要我的明确授权</span>
+        </label>
+        {value.target && (
+          <details className="advanced-settings">
+            <summary>高级：页面元素定位</summary>
+            <label>
+              界面上显示的文字
+              <input
+                required
+                value={value.target.value}
+                onChange={(event) =>
+                  setValue({
+                    ...value,
+                    target: { ...value.target!, value: event.target.value },
+                    verification:
+                      value.verification.target?.strategy ===
+                        value.target!.strategy &&
+                      value.verification.target?.value === value.target!.value
+                        ? {
+                            ...value.verification,
+                            target: {
+                              ...value.verification.target!,
+                              value: event.target.value,
+                            },
+                          }
+                        : value.verification,
+                  })
+                }
+              />
+            </label>
+            <p>仅在 Agent 找不到正确元素时调整。</p>
+          </details>
+        )}
+        {error && <p className="inline-error">{error}</p>}
+        <div className="dialog-footer">
+          <span>执行前会保存并重新确认</span>
+          <button className="primary" disabled={busy}>
+            {busy ? (
+              <Loader2 size={15} className="spin" />
+            ) : (
+              <Check size={15} />
+            )}
+            保存步骤
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
