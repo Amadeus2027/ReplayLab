@@ -11,7 +11,7 @@ from .executor import read_assertions, read_parameters
 from .exporter import export_skill
 from .models import Workflow
 from .pipeline import analyze as analyze_task
-from .store import Store
+from .store import Store, digest
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 
@@ -56,7 +56,7 @@ def import_workflow(path: Path):
     store = Store()
     task_id, _ = store.create(str(path.resolve()))
     store.save(task_id, workflow)
-    store.status(task_id, status="needs_review", evidence_available=False)
+    store.status(task_id, status="needs_review", evidence_available=False, workflow_origin="manual")
     typer.echo(task_id)
 
 
@@ -65,6 +65,7 @@ def approve(task_id: str, yes: Annotated[bool, typer.Option("--yes", "-y")] = Fa
     """Approve the current workflow after reviewing its JSON or workbench evidence."""
     store = Store()
     workflow = store.workflow(task_id)
+    expected_digest = digest(workflow)
     if workflow.uncertainties:
         raise typer.BadParameter("Resolve uncertainties in workflow.json before approval")
     if not yes:
@@ -74,7 +75,7 @@ def approve(task_id: str, yes: Annotated[bool, typer.Option("--yes", "-y")] = Fa
         )
     for step in workflow.steps:
         step.status = "approved"
-    store.save(task_id, workflow)
+    store.save(task_id, workflow, expected_digest=expected_digest)
     store.status(task_id, status="approved")
     typer.echo("Approved. Execution is a separate command.")
 

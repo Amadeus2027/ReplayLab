@@ -548,6 +548,20 @@ label small {
   flex: 1;
   min-height: 490px;
 }
+.workflow-conflict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 0 24px 16px;
+  padding: 14px 18px;
+  border: 1px solid #77644a;
+  border-radius: 12px;
+  color: #d4c1a7;
+  font-size: 12px;
+  line-height: 1.7;
+}
 .canvas-column {
   display: flex;
   flex-direction: column;

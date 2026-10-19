@@ -1,0 +1,37 @@
+name: Core checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: core-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - run: uv sync --extra dev --locked --python 3.12
+      - run: uv run --locked ruff check replaylab scripts tests
+      - name: Core regression tests (no browser download or model requests)
+        run: uv run --locked pytest -q tests/test_guards.py tests/test_consumer_api.py tests/test_real_video.py tests/test_review_fixes.py tests/test_media.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web-workbench/package-lock.json
+      - run: npm ci
+        working-directory: apps/web-workbench
+      - run: npm run build
+        working-directory: apps/web-workbench
