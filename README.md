@@ -29,6 +29,7 @@ replaylab serve
 
 - [开源依赖复用](docs/dependencies.md)
 - [必要验证记录](docs/validation.md)
+- [合并后审查修复与 API 版本约束](docs/review-fixes.md)
 - [延期测试清单](docs/testing-backlog.md)
 
 遵循 [Karpathy 开发约定](AGENTS.md)，仅做当前改动必要的验证；全面测试由项目所有者主动提出后开展。

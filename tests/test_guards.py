@@ -77,11 +77,20 @@ def test_api_auth_and_edits_invalidate_approval(workflow, tmp_path):
     path = f"/api/tasks/{task_id}"
     assert client.get(path).status_code == 401
     headers = {"Authorization": f"Bearer {store.token()}"}
-    assert client.post(path + "/approve", headers=headers).status_code == 200
+    assert (
+        client.post(
+            path + "/approve", headers=headers, json={"expected_digest": digest(workflow)}
+        ).status_code
+        == 200
+    )
     approved = store.workflow(task_id)
     assert approved.steps[0].status == "approved"
     assert (
-        client.put(path + "/workflow", headers=headers, json=approved.model_dump()).status_code
+        client.put(
+            path + "/workflow",
+            headers=headers,
+            json={"workflow": approved.model_dump(), "expected_digest": digest(approved)},
+        ).status_code
         == 200
     )
     assert store.workflow(task_id).steps[0].status == "needs_review"

@@ -6,7 +6,13 @@ import secrets
 from pathlib import Path
 from uuid import uuid4
 
+from filelock import FileLock
+
 from .models import Workflow
+
+
+class WorkflowConflict(ValueError):
+    pass
 
 
 def data_root() -> Path:
@@ -45,16 +51,23 @@ class Store:
         return task_id, path
 
     def status(self, task_id: str, **updates):
-        path = self.task(task_id) / "task.json"
-        metadata = json.loads(path.read_text())
-        metadata.update(updates)
-        write_json(path, metadata)
+        task = self.task(task_id)
+        with FileLock(task / ".workflow.lock", timeout=5):
+            path = task / "task.json"
+            metadata = json.loads(path.read_text())
+            metadata.update(updates)
+            write_json(path, metadata)
 
     def workflow(self, task_id: str) -> Workflow:
         return Workflow.model_validate_json((self.task(task_id) / "workflow.json").read_text())
 
-    def save(self, task_id: str, workflow: Workflow):
-        write_json(self.task(task_id) / "workflow.json", workflow.model_dump())
+    def save(self, task_id: str, workflow: Workflow, expected_digest: str | None = None):
+        path = self.task(task_id)
+        # CLI and API writers share this lock; compare and replace are one operation.
+        with FileLock(path / ".workflow.lock", timeout=5):
+            if expected_digest is not None and digest(self.workflow(task_id)) != expected_digest:
+                raise WorkflowConflict("流程已在其他位置更新，请加载最新流程后重新核对。")
+            write_json(path / "workflow.json", workflow.model_dump())
 
     def token(self) -> str:
         path = self.root / "token"

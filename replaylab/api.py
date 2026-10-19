@@ -21,7 +21,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -31,7 +31,8 @@ from .executor import execute
 from .exporter import export_skill
 from .models import Model, Workflow, origin
 from .pipeline import analyze
-from .store import Store
+from .store import Store, WorkflowConflict, digest
+from .validation import workflow_origin
 
 
 class AnalyzeRequest(Model):
@@ -39,7 +40,15 @@ class AnalyzeRequest(Model):
     start_url: str
 
 
-class ExecuteRequest(Model):
+class VersionRequest(Model):
+    expected_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class SaveRequest(VersionRequest):
+    workflow: Workflow
+
+
+class ExecuteRequest(VersionRequest):
     parameters: dict[str, str] = Field(default_factory=dict)
     confirm_sensitive: bool = False
 
@@ -58,6 +67,21 @@ def create_app(store: Store | None = None) -> FastAPI:
         allow_headers=["Authorization", "Content-Type"],
     )
     locks: dict[str, Lock] = {}
+
+    @app.exception_handler(WorkflowConflict)
+    def workflow_conflict(_request, exc):
+        return JSONResponse(
+            status_code=409, content={"detail": str(exc), "code": "workflow_conflict"}
+        )
+
+    def snapshot(workflow):
+        return {"workflow": workflow, "workflow_digest": digest(workflow)}
+
+    def checked_workflow(task_id, expected_digest):
+        workflow = store.workflow(task_id)
+        if digest(workflow) != expected_digest:
+            raise WorkflowConflict("流程已在其他位置更新，请加载最新流程后重新核对。")
+        return workflow
 
     def authorize(request: Request, authorization: str = Header(default="")):
         if not secrets.compare_digest(authorization, f"Bearer {token}"):
@@ -105,7 +129,9 @@ def create_app(store: Store | None = None) -> FastAPI:
             report = execute(
                 workflow, store.task(task_id) / "execution", body.parameters, body.confirm_sensitive
             )
-            store.status(task_id, status=report["status"])
+            current = store.workflow(task_id)
+            status = report["status"] if digest(current) == digest(workflow) else "needs_review"
+            store.status(task_id, status=status)
         except Exception as exc:
             store.status(task_id, status="failed", error=str(exc))
         finally:
@@ -126,8 +152,12 @@ def create_app(store: Store | None = None) -> FastAPI:
             item = json.loads(path.read_text())
             workflow_path = path.parent / "workflow.json"
             if workflow_path.exists():
-                workflow = json.loads(workflow_path.read_text())
-                item.update(title=workflow["title"], step_count=len(workflow["steps"]))
+                workflow = Workflow.model_validate_json(workflow_path.read_text())
+                item.update(
+                    title=workflow.title,
+                    step_count=len(workflow.steps),
+                    workflow_origin=workflow_origin(path.parent, workflow),
+                )
             result.append(item)
         return result
 
@@ -198,6 +228,10 @@ def create_app(store: Store | None = None) -> FastAPI:
         }.items():
             if (path / filename).exists():
                 result[name] = json.loads((path / filename).read_text())
+        if "workflow" in result:
+            workflow = Workflow.model_validate(result["workflow"])
+            result["workflow_digest"] = digest(workflow)
+            result["workflow_origin"] = workflow_origin(path, workflow)
         return result
 
     @app.get("/api/tasks/{task_id}/media", dependencies=auth)
@@ -209,32 +243,35 @@ def create_app(store: Store | None = None) -> FastAPI:
         return FileResponse(path)
 
     @app.put("/api/tasks/{task_id}/workflow", dependencies=auth)
-    def save_workflow(task_id: str, workflow: Workflow):
+    def save_workflow(task_id: str, body: SaveRequest):
         with mutation(task_id):
+            workflow = body.workflow
             # Any edit invalidates approval. A separate user action approves the new version.
             for step in workflow.steps:
                 step.status = "needs_review"
-            store.save(task_id, workflow)
+            store.save(task_id, workflow, expected_digest=body.expected_digest)
             store.status(task_id, status="needs_review")
-        return workflow
+        return snapshot(workflow)
 
     @app.post("/api/tasks/{task_id}/approve", dependencies=auth)
-    def approve(task_id: str):
+    def approve(task_id: str, body: VersionRequest):
         with mutation(task_id):
-            workflow = store.workflow(task_id)
+            workflow = checked_workflow(task_id, body.expected_digest)
             if workflow.uncertainties:
                 raise HTTPException(409, "Resolve uncertainties before approval")
             for step in workflow.steps:
                 step.status = "approved"
-            store.save(task_id, workflow)
+            store.save(task_id, workflow, expected_digest=body.expected_digest)
             store.status(task_id, status="approved")
-        return workflow
+        return snapshot(workflow)
 
     @app.post("/api/tasks/{task_id}/execute", dependencies=auth, status_code=202)
     def run(task_id: str, body: ExecuteRequest, background: BackgroundTasks):
         lock = reserve(task_id)
         try:
-            workflow = store.workflow(task_id)
+            workflow = checked_workflow(task_id, body.expected_digest)
+            if workflow.uncertainties or any(s.status != "approved" for s in workflow.steps):
+                raise HTTPException(409, "Review and approve this workflow before execution")
             store.status(task_id, status="executing")
         except Exception:
             lock.release()

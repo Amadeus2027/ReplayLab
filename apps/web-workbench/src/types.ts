@@ -34,6 +34,7 @@ export type Workflow = {
 };
 export type Frame = { id: string; timestamp_ms: number; path: string };
 export type Report = {
+  workflow_digest: string;
   status: string;
   error?: string;
   seconds: number;
@@ -48,6 +49,8 @@ export type Task = {
   step_count?: number;
   has_media?: boolean;
   workflow?: Workflow;
+  workflow_digest?: string;
+  workflow_origin?: "manual" | "video" | "video_edited" | "unknown";
   evidence?: { duration_ms: number; frames: Frame[] };
   report?: Report;
   timings?: Record<string, number>;

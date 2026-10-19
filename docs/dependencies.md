@@ -13,6 +13,7 @@
 | OpenAI Python SDK | https://github.com/openai/openai-python | OpenAI 兼容视觉接口，不重复实现 HTTP SDK |
 | Typer | https://github.com/fastapi/typer | CLI 参数、帮助和审核提示 |
 | python-multipart | https://github.com/Kludex/python-multipart | FastAPI 视频上传表单解析 |
+| FileLock | https://github.com/tox-dev/filelock | 工作流写入与摘要条件更新的跨进程文件锁 |
 
 交互参考 [n8n](https://n8n.io/) 的流程画布和 [Gumloop](https://www.gumloop.com/) 的 Agent/工作流呈现。借鉴信息层级与交互模式，没有复制其品牌资源或业务源码。
 

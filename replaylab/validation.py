@@ -33,6 +33,35 @@ def review_changes(generated: Workflow, current: Workflow) -> dict:
     }
 
 
+def workflow_origin(task_dir: Path, current: Workflow) -> str:
+    """Label origin from compiler receipts, never from titles or filenames.
+
+    This describes recorded generation, not successful execution or a signed attestation.
+    Full media/frame byte verification remains the explicit validation-report operation.
+    """
+    metadata = read(task_dir / "task.json") or {}
+    inference = read(task_dir / "inference.json") or {}
+    try:
+        generated = Workflow.model_validate(read(task_dir / "workflow.generated.json"))
+        manifest = read(task_dir / "frames.json")
+        raw = (task_dir / "model-response.txt").read_text()
+        recorded = (
+            inference.get("status") == "succeeded"
+            and digest(generated) == inference.get("generated_workflow_digest")
+            and hashlib.sha256(raw.encode()).hexdigest() == inference.get("response_sha256")
+            and hashlib.sha256(json.dumps(manifest, sort_keys=True).encode()).hexdigest()
+            == inference.get("manifest_sha256")
+            and bool(inference.get("source_sha256"))
+            and inference["source_sha256"] == metadata.get("media_sha256")
+            and digest(validate_draft(raw, manifest, generated.start_url)) == digest(generated)
+        )
+        if recorded:
+            return "video_edited" if any(review_changes(generated, current).values()) else "video"
+    except (ValueError, OSError, KeyError, TypeError):
+        pass
+    return "manual" if metadata.get("workflow_origin") == "manual" else "unknown"
+
+
 def summarize(task_dir: Path) -> dict:
     metadata = read(task_dir / "task.json") or {}
     inference = read(task_dir / "inference.json") or {}

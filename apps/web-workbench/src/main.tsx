@@ -92,6 +92,10 @@ function App() {
   );
   const [task, setTask] = useState<Task>();
   const [workflow, setWorkflow] = useState<Workflow>();
+  const [workflowDigest, setWorkflowDigest] = useState("");
+  const [workflowOrigin, setWorkflowOrigin] =
+    useState<Task["workflow_origin"]>("unknown");
+  const [conflict, setConflict] = useState(false);
   const [selected, setSelected] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [search, setSearch] = useState("");
@@ -103,6 +107,20 @@ function App() {
   const [mediaUrl, setMediaUrl] = useState("");
   const mediaRef = useRef("");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const viewRef = useRef({
+    digest: "",
+    dirty: false,
+    busy: false,
+    reviewing: false,
+    conflict: false,
+  });
+  viewRef.current = {
+    digest: workflowDigest,
+    dirty,
+    busy,
+    reviewing: modal === "run" || modal === "edit",
+    conflict,
+  };
 
   async function request(path: string, init?: RequestInit) {
     const response = await fetch(
@@ -116,12 +134,18 @@ function App() {
       const result = await response.json().catch(() => null);
       if (response.status === 401)
         throw new Error("请先在设置中连接本机服务。");
-      if (response.status === 409)
+      if (response.status === 409) {
+        if (result?.code === "workflow_conflict") {
+          setConflict(true);
+          setModal(null);
+          setNotice(result.detail);
+        }
         throw new Error(
           typeof result?.detail === "string"
             ? result.detail
             : "请先完成流程确认，或等待当前任务结束。",
         );
+      }
       throw new Error(
         typeof result?.detail === "string"
           ? result.detail
@@ -144,11 +168,15 @@ function App() {
     ).json();
   }
   function choose(id: string) {
+    if (busy) return;
     if (dirty && !window.confirm("切换后将放弃尚未保存的步骤修改，继续吗？"))
       return;
     setTaskId(id);
     setTask(undefined);
     setWorkflow(undefined);
+    setWorkflowDigest("");
+    setWorkflowOrigin("unknown");
+    setConflict(false);
     setSelected(0);
     setDirty(false);
     setNotice("");
@@ -165,9 +193,41 @@ function App() {
       setBusy(false);
     }
   }
+  function acceptTask(next: Task, force = false) {
+    setTask(next);
+    const view = viewRef.current;
+    if (!force && next.workflow_digest === view.digest) {
+      setWorkflowOrigin(next.workflow_origin || "unknown");
+      return;
+    }
+    if (!force && view.busy) return;
+    if (
+      !force &&
+      view.digest &&
+      (view.dirty || view.reviewing || view.conflict)
+    ) {
+      setConflict(true);
+      setModal(null);
+      setNotice("流程已在其他位置更新。请加载最新流程，重新核对后执行。");
+      return;
+    }
+    if (!force && view.digest)
+      setNotice("流程已更新，请重新核对步骤与运行条件。");
+    setWorkflow(next.workflow);
+    setWorkflowDigest(next.workflow_digest || "");
+    setWorkflowOrigin(next.workflow_origin || "unknown");
+    setSelected(0);
+    setDirty(false);
+    setConflict(false);
+  }
   async function refresh() {
     setTasks(await api("/tasks"));
-    if (taskId) setTask(await api(`/tasks/${taskId}`));
+    if (taskId) acceptTask(await api(`/tasks/${taskId}`), true);
+  }
+  async function reloadWorkflow() {
+    if (dirty && !window.confirm("加载后将放弃尚未保存的修改，继续吗？"))
+      return;
+    await act(refresh);
   }
   useEffect(() => {
     sessionStorage.setItem("replaylab-token", token);
@@ -187,8 +247,7 @@ function App() {
         if (taskId) {
           const next: Task = await api(`/tasks/${taskId}`);
           if (!active) return;
-          setTask(next);
-          setWorkflow((current) => current || next.workflow);
+          acceptTask(next);
         }
       } catch {
         if (active) setConnected(false);
@@ -213,12 +272,22 @@ function App() {
   const step = workflow?.steps[selected];
   const executing = task?.status === "executing";
   const processing = processingStates.includes(task?.status || "");
-  const blocked = busy || executing || processing;
-  const demo = /手工|hand-authored/.test(
-    `${workflow?.title || ""} ${task?.source || ""}`,
-  );
+  const blocked = busy || executing || processing || conflict;
+  const manual = workflowOrigin === "manual";
+  const originLabel = {
+    manual: "人工导入流程",
+    video: "视频分析生成",
+    video_edited: "视频分析生成 · 已人工修改",
+    unknown: "流程来源未核验",
+  }[
+    dirty && workflowOrigin === "video"
+      ? "video_edited"
+      : workflowOrigin || "unknown"
+  ];
   const report =
     dirty ||
+    conflict ||
+    task?.report?.workflow_digest !== workflowDigest ||
     ["needs_review", "approved"].includes(task?.status || "") ||
     (executing && task?.report?.status !== "running")
       ? undefined
@@ -257,16 +326,27 @@ function App() {
     }
   }
   async function run(parameters: Record<string, string>, sensitive: boolean) {
-    if (!workflow) return;
+    if (!workflow || !workflowDigest || conflict) return;
     setBusy(true);
     try {
+      let version = workflowDigest;
       if (dirty) {
-        const saved = await api(`/tasks/${taskId}/workflow`, "PUT", workflow);
-        setWorkflow(saved);
+        const saved = await api(`/tasks/${taskId}/workflow`, "PUT", {
+          workflow,
+          expected_digest: version,
+        });
+        setWorkflow(saved.workflow);
+        setWorkflowDigest(saved.workflow_digest);
+        version = saved.workflow_digest;
         setDirty(false);
       }
-      setWorkflow(await api(`/tasks/${taskId}/approve`, "POST"));
+      const approved = await api(`/tasks/${taskId}/approve`, "POST", {
+        expected_digest: version,
+      });
+      setWorkflow(approved.workflow);
+      setWorkflowDigest(approved.workflow_digest);
       await api(`/tasks/${taskId}/execute`, "POST", {
+        expected_digest: approved.workflow_digest,
         parameters,
         confirm_sensitive: sensitive,
       });
@@ -554,7 +634,7 @@ function App() {
                   </span>
                   视频工作流
                   <span className="divider" />
-                  {demo ? "示例流程 · 手工编写" : "由视频还原"}
+                  {originLabel}
                   {dirty && <span className="unsaved">有未保存修改</span>}
                 </div>
                 <h1>{cleanTitle(workflow.title)}</h1>
@@ -591,6 +671,20 @@ function App() {
                 </button>
               </div>
             </div>
+            {conflict && (
+              <div className="workflow-conflict" role="alert">
+                <span>
+                  流程已在其他位置更新。为避免执行旧版本，请加载最新流程后重新核对。
+                </span>
+                <button
+                  className="secondary small"
+                  disabled={busy}
+                  onClick={() => void reloadWorkflow()}
+                >
+                  加载最新流程
+                </button>
+              </div>
+            )}
             <div className="work-area">
               <div className="canvas-column">
                 <WorkflowCanvas
@@ -731,8 +825,8 @@ function App() {
                           <div className="no-evidence">
                             <Film size={25} />
                             <span>
-                              {demo
-                                ? "手工示例，没有视频证据"
+                              {manual
+                                ? "人工导入流程，没有关联的视频画面"
                                 : "这一步暂没有可用画面"}
                             </span>
                           </div>
@@ -925,12 +1019,21 @@ function App() {
           onSave={async (updated) => {
             const next = structuredClone(workflow);
             next.steps[selected] = updated;
-            const saved = await api(`/tasks/${taskId}/workflow`, "PUT", next);
-            setWorkflow(saved);
-            setDirty(false);
-            await refresh();
-            setNotice("步骤已保存，执行前会重新确认流程。");
-            setModal(null);
+            setBusy(true);
+            try {
+              const saved = await api(`/tasks/${taskId}/workflow`, "PUT", {
+                workflow: next,
+                expected_digest: workflowDigest,
+              });
+              setWorkflow(saved.workflow);
+              setWorkflowDigest(saved.workflow_digest);
+              setDirty(false);
+              await refresh();
+              setNotice("步骤已保存，执行前会重新确认流程。");
+              setModal(null);
+            } finally {
+              setBusy(false);
+            }
           }}
         />
       )}

@@ -3,8 +3,12 @@
 import json
 import re
 import subprocess
+import sys
+import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
+from .media import DOWNLOAD_TIMEOUT, MAX_BYTES
 from .models import Frame, origin
 from .store import write_json
 
@@ -17,28 +21,25 @@ def command(args: list[str]) -> str:
 
 
 def acquire(source: str, task_dir: Path) -> Path:
-    if source.startswith(("http://", "https://")):
-        import yt_dlp
-
+    if urlsplit(source).scheme in {"http", "https"}:
         origin(source)
-        with yt_dlp.YoutubeDL(
-            {
-                "outtmpl": str(task_dir / "source.%(ext)s"),
-                "format": "best[height<=720]/best",
-                "noplaylist": True,
-                "quiet": True,
-                "socket_timeout": 30,
-                "retries": 1,
-                "overwrites": False,
-            }
-        ) as downloader:
-            info = downloader.extract_info(source, download=True)
-            if info.get("entries") is not None:
-                raise ValueError("Playlists are not supported")
-            path = Path(downloader.prepare_filename(info))
-        if not path.is_file():
-            raise FileNotFoundError("Media downloader did not produce a file")
-        return path
+        with tempfile.TemporaryDirectory(dir=task_dir, prefix="download-") as temporary:
+            result = subprocess.run(
+                [sys.executable, "-m", "replaylab.media", source, temporary],
+                capture_output=True,
+                text=True,
+                timeout=DOWNLOAD_TIMEOUT,
+            )
+            if result.returncode:
+                raise ValueError(f"Media acquisition failed: {result.stderr[-1600:]}")
+            directory = Path(temporary)
+            filename = json.loads((directory / "result.json").read_text())["filename"]
+            path = (directory / filename).resolve()
+            if not path.is_relative_to(directory.resolve()) or not path.is_file():
+                raise ValueError("Invalid downloaded media path")
+            if not 0 < path.stat().st_size <= MAX_BYTES:
+                raise ValueError("Video exceeds the 200 MB limit or is empty")
+            return path.replace(task_dir / f"source{path.suffix}")
     path = Path(source).expanduser().resolve()
     if not path.is_file():
         raise FileNotFoundError(f"Video not found: {path}")
@@ -52,6 +53,8 @@ def extract_frames(media: Path, task_dir: Path, max_frames: int = 32) -> dict:
                 "ffprobe",
                 "-v",
                 "error",
+                "-protocol_whitelist",
+                "file,pipe",
                 "-show_entries",
                 "format=duration:stream=codec_type",
                 "-of",
@@ -73,6 +76,8 @@ def extract_frames(media: Path, task_dir: Path, max_frames: int = 32) -> dict:
         [
             "ffmpeg",
             "-hide_banner",
+            "-protocol_whitelist",
+            "file,pipe",
             "-i",
             str(media),
             "-vf",
@@ -113,6 +118,8 @@ def extract_frames(media: Path, task_dir: Path, max_frames: int = 32) -> dict:
                 "-y",
                 "-ss",
                 str(timestamp),
+                "-protocol_whitelist",
+                "file,pipe",
                 "-i",
                 str(media),
                 "-frames:v",
