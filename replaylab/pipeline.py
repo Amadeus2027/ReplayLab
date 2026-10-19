@@ -1,3 +1,4 @@
+import hashlib
 from time import perf_counter
 
 from .compiler import compile_video
@@ -15,6 +16,9 @@ def analyze(store: Store, task_id: str, source: str, start_url: str) -> None:
         store.status(task_id, status="acquiring", error=None)
         stage = perf_counter()
         media = acquire(source, path)
+        with media.open("rb") as handle:
+            source_hash = hashlib.file_digest(handle, "sha256").hexdigest()
+        store.status(task_id, media_path=str(media), media_sha256=source_hash)
         timings["acquire_seconds"] = round(perf_counter() - stage, 3)
         store.status(task_id, status="extracting")
         stage = perf_counter()

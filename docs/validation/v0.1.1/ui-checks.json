@@ -1,0 +1,25 @@
+{
+  "browser": "Chromium 154.0.8037.57",
+  "desktop_viewport": [
+    1512,
+    982
+  ],
+  "mobile_viewport": [
+    390,
+    844
+  ],
+  "status": "passed",
+  "checks": [
+    "actual model task displays five steps",
+    "glass background does not intercept Agent button",
+    "confirmation dialog opens and Escape closes it",
+    "mobile defaults to five readable list steps",
+    "selecting last mobile step updates inspector",
+    "mobile glass layers fit dock",
+    "no horizontal overflow",
+    "no page runtime errors"
+  ],
+  "model_requests": 0,
+  "task_mutations": 0,
+  "scope": "one desktop viewport and one narrow viewport; not iOS or full browser compatibility"
+}

@@ -1,0 +1,30 @@
+{
+  "actions": [
+    {
+      "action": "fill",
+      "target": "项目名称",
+      "value": "Replay-E8A310"
+    },
+    {
+      "action": "select",
+      "target": "优先级",
+      "value": "高"
+    },
+    {
+      "action": "check",
+      "target": "启用提醒",
+      "value": null
+    },
+    {
+      "action": "click",
+      "target": "创建项目",
+      "value": null
+    },
+    {
+      "action": "fill",
+      "target": "搜索项目",
+      "value": "Replay-E8A310"
+    }
+  ],
+  "not_model_input": true
+}

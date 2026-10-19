@@ -1,0 +1,53 @@
+{
+  "calls": [
+    {
+      "artifact": "failed-protocol",
+      "status": "invalid_output",
+      "seconds": 23.205,
+      "usage": {
+        "completion_tokens": 4957,
+        "prompt_tokens": 12784,
+        "total_tokens": 17741,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": null,
+          "audio_tokens": null,
+          "reasoning_tokens": 3874,
+          "rejected_prediction_tokens": null
+        },
+        "prompt_tokens_details": {
+          "audio_tokens": null,
+          "cache_write_tokens": null,
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 12784
+      }
+    },
+    {
+      "artifact": "passed",
+      "status": "succeeded",
+      "seconds": 15.033,
+      "usage": {
+        "completion_tokens": 3119,
+        "prompt_tokens": 16519,
+        "total_tokens": 19638,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": null,
+          "audio_tokens": null,
+          "reasoning_tokens": 1933,
+          "rejected_prediction_tokens": null
+        },
+        "prompt_tokens_details": {
+          "audio_tokens": null,
+          "cache_write_tokens": null,
+          "cached_tokens": 128
+        },
+        "prompt_cache_hit_tokens": 128,
+        "prompt_cache_miss_tokens": 16391
+      }
+    }
+  ],
+  "total_tokens": 37379,
+  "automatic_retries": 0,
+  "note": "Two real calls; the second followed observed schema and recording fixes, using a newly recorded sample."
+}

@@ -17,7 +17,9 @@ def origin(url: str) -> str:
         raise ValueError("Only HTTP(S) URLs without embedded credentials are supported")
     port = parsed.port
     host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
-    suffix = f":{port}" if port is not None and port != {"http": 80, "https": 443}[parsed.scheme] else ""
+    suffix = (
+        f":{port}" if port is not None and port != {"http": 80, "https": 443}[parsed.scheme] else ""
+    )
     return f"{parsed.scheme}://{host}{suffix}"
 
 
@@ -57,6 +59,26 @@ class Target(Model):
 
 
 class Assertion(Model):
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {"type": {"enum": ["visible", "text", "value", "checked"]}}
+                    },
+                    "then": {"required": ["target"], "properties": {"target": {"type": "object"}}},
+                },
+                {
+                    "if": {"properties": {"type": {"enum": ["text", "url", "value"]}}},
+                    "then": {
+                        "required": ["expected"],
+                        "properties": {"expected": {"type": "string"}},
+                    },
+                },
+            ]
+        },
+    )
     type: Literal["visible", "text", "url", "value", "checked"]
     target: Target | None = None
     expected: str | None = None

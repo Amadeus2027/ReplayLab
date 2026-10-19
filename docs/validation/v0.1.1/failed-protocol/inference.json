@@ -1,0 +1,52 @@
+{
+  "attempt_id": "963c7dfa001a",
+  "status": "invalid_output",
+  "model": "deepseek-flash",
+  "provider_host": "api.deepseek.com",
+  "frame_count": 16,
+  "frame_sha256": {
+    "frame_000": "c6bed345a622e53371bffd62ff27ee4512c58bcc0f3f3b1fc3bc66bd9ca04bdb",
+    "frame_001": "20c0c57f4a929c9bcead80d22c4824db7eff7758168f937e4f050e50af5a8b39",
+    "frame_002": "fbf20ba0848addb7b29157769fd18af5a307669f16afafd5a1863446d8c3c4f5",
+    "frame_003": "28176b1ff0d2cf9a1850debf56a419ad6a9924beaca5ea7b170b849430735138",
+    "frame_004": "ebba93bc427d7dc07ead4bf9b29bd8ab5f4e3cedcaf51340bfc4687da4edc566",
+    "frame_005": "236732994e431f6c697659b7ef7be0a385264c1be731b9f30cb2e1e0fde8586d",
+    "frame_006": "b45b3e7d56b17b2f0a77dab196c18e836bcb4cc31f3007c094df63f7f35dd601",
+    "frame_007": "7af3e88560cbad7b9465d4b86df681a72e3e1605b4bcc16cbd5b03bc98880382",
+    "frame_008": "6bb43cee01f93b8572e92a547ac4e4bdc5e6751d366f195608f6561ce9b2ae8e",
+    "frame_009": "352aaeae49aa0a75c4c36fe2983ab69c05029efee6ba7ca4131f87e4d1c8c797",
+    "frame_010": "78eb87ccd3df088caee0b1c6ea92cdeb198111ff873560ca45738bc09c9e5839",
+    "frame_011": "5eaf4455c89e7cabe2342cc273262d28fbb67c47bc920d320e22cb30cbebc7dc",
+    "frame_012": "d5c6cec9c4ee1317bd543adb2ba65d7bb517f57bca4ef4fe4b7d7350d7a9e1ac",
+    "frame_013": "4db5ef2c6e4c3d3e8681849e2f7bde118e209cb73be896b6927e95fd6cc704f4",
+    "frame_014": "40de57c413b26429ab2f586102a13e7f66dba82ef31bf6930ae844f16a20c897",
+    "frame_015": "41a89a3e31fd08b768dd91c82521825a05f227f938ae1dd0614a8be6ca6f436a"
+  },
+  "manifest_sha256": "5be96a426df83669bba50e13e81a464fd7c9dbe73188323694179c25d64b7a57",
+  "prompt_sha256": "e5f0a6199ebf22f77ece1e44433ea2c406a4d17d1eed458d2611584ad51dbd9a",
+  "schema_sha256": "85ddf0bc793d18304f63a26384199ca8cdb69a3ef8a66ffbc3527f4efa080f70",
+  "seconds": 23.205,
+  "response_id": "237437de-1f54-4b0d-9dcc-26d02db3403c",
+  "usage": {
+    "completion_tokens": 4957,
+    "prompt_tokens": 12784,
+    "total_tokens": 17741,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": null,
+      "audio_tokens": null,
+      "reasoning_tokens": 3874,
+      "rejected_prediction_tokens": null
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": null,
+      "cache_write_tokens": null,
+      "cached_tokens": 0
+    },
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 12784
+  },
+  "response_model": "deepseek-flash",
+  "finish_reason": "stop",
+  "response_sha256": "af665568cf2f203444d3064706e7b9e2ef06f028efc074341127860056fb9b48",
+  "error_type": "ValidationError"
+}

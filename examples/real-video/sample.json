@@ -1,0 +1,8 @@
+{
+  "kind": "controlled_browser_recording",
+  "duration_ms": 41080,
+  "source_sha256": "9af8e9efe8a7923724d0de2701a5e537608257bbcce2757b47a820280e824ad0",
+  "start_url": "http://127.0.0.1:8891",
+  "port": 8891,
+  "model_called": false
+}

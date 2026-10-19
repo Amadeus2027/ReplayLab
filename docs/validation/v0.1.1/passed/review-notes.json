@@ -1,0 +1,26 @@
+{
+  "scope": "Controlled local-only demo. Review after inference; references were not model input.",
+  "operation_edits": 0,
+  "resolved_uncertainties": [
+    {
+      "item": "“项目名称”输入框内文本 Replay-E8A310 疑似为演示随机生成值；若需复用为固定值，请确认是否应改为参数占位符",
+      "resolution": "This experiment reproduces the recorded literal project name. Parameterization is outside this sample acceptance."
+    },
+    {
+      "item": "搜索框输入过程在 frame_012 至 frame_013 之间出现疑似退格/重输（Replay-E8A310 → Replay-E8A31 → Replay-E8A310），已合并为一次填充，是否需要保留中间删除动作",
+      "resolution": "Reviewed frames 012/013 and final video state. Use the final visible value; intermediate OCR/typing differences do not require separate actions."
+    },
+    {
+      "item": "“优先级”下拉框仅能读到可见选项“普通”“高”，其余选项不可见且未展开，无法确认完整选项集",
+      "resolution": "Only the demonstrated option 高 is required. No claim is made about other options."
+    },
+    {
+      "item": "点击“创建项目”是否属于需要额外确认的敏感写操作，需用户确认",
+      "resolution": "Creation is confined to the local volatile demo. Keep sensitive=true and explicitly confirm this controlled run."
+    },
+    {
+      "item": "列表中项目条目为纯文本（Replay-E8A310 · 高优先级 · 提醒已开启），未看到可点击控件，无法确认其角色",
+      "resolution": "The item is used as an exact text assertion, not as a clickable control. Interactive role inference is unnecessary."
+    }
+  ]
+}

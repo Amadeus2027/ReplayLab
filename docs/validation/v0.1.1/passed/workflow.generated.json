@@ -1,0 +1,222 @@
+{
+  "schema_version": "0.1",
+  "title": "在本地项目工作台新建项目并按名称搜索",
+  "start_url": "http://127.0.0.1:8891",
+  "allowed_origins": [
+    "http://127.0.0.1:8891"
+  ],
+  "parameters": {},
+  "preconditions": [
+    "演示页面 http://127.0.0.1:8891 已在浏览器中打开并完成首屏渲染（显示“项目工作台”“新建项目”“项目列表”）",
+    "项目列表为空，显示“尚未创建项目”，不存在同名项目",
+    "无需登录，数据仅保存在当前页面内存中"
+  ],
+  "uncertainties": [
+    "“项目名称”输入框内文本 Replay-E8A310 疑似为演示随机生成值；若需复用为固定值，请确认是否应改为参数占位符",
+    "搜索框输入过程在 frame_012 至 frame_013 之间出现疑似退格/重输（Replay-E8A310 → Replay-E8A31 → Replay-E8A310），已合并为一次填充，是否需要保留中间删除动作",
+    "“优先级”下拉框仅能读到可见选项“普通”“高”，其余选项不可见且未展开，无法确认完整选项集",
+    "点击“创建项目”是否属于需要额外确认的敏感写操作，需用户确认",
+    "列表中项目条目为纯文本（Replay-E8A310 · 高优先级 · 提醒已开启），未看到可点击控件，无法确认其角色"
+  ],
+  "steps": [
+    {
+      "id": "s1",
+      "action": "fill",
+      "description": "在“新建项目”表单的“项目名称”输入框中填入项目名称 Replay-E8A310",
+      "source": {
+        "start_ms": 2735,
+        "end_ms": 5471,
+        "frame_ids": [
+          "frame_001",
+          "frame_002"
+        ]
+      },
+      "target": {
+        "description": "新建项目表单中的项目名称输入框",
+        "strategy": "label",
+        "value": "项目名称",
+        "role": "textbox"
+      },
+      "value": "Replay-E8A310",
+      "confidence": 0.9,
+      "status": "needs_review",
+      "sensitive": false,
+      "verification": {
+        "type": "value",
+        "target": {
+          "description": "新建项目表单中的项目名称输入框",
+          "strategy": "label",
+          "value": "项目名称",
+          "role": "textbox"
+        },
+        "expected": "Replay-E8A310"
+      }
+    },
+    {
+      "id": "s2",
+      "action": "select",
+      "description": "将“优先级”下拉框从“普通”改为可见选项“高”",
+      "source": {
+        "start_ms": 8206,
+        "end_ms": 10941,
+        "frame_ids": [
+          "frame_003",
+          "frame_004"
+        ]
+      },
+      "target": {
+        "description": "新建项目表单中的优先级下拉框",
+        "strategy": "label",
+        "value": "优先级",
+        "role": "combobox"
+      },
+      "value": "高",
+      "confidence": 0.88,
+      "status": "needs_review",
+      "sensitive": false,
+      "verification": {
+        "type": "value",
+        "target": {
+          "description": "新建项目表单中的优先级下拉框",
+          "strategy": "label",
+          "value": "优先级",
+          "role": "combobox"
+        },
+        "expected": "高"
+      }
+    },
+    {
+      "id": "s3",
+      "action": "check",
+      "description": "勾选“启用提醒”复选框",
+      "source": {
+        "start_ms": 13677,
+        "end_ms": 16412,
+        "frame_ids": [
+          "frame_005",
+          "frame_006"
+        ]
+      },
+      "target": {
+        "description": "新建项目表单中的启用提醒复选框",
+        "strategy": "label",
+        "value": "启用提醒",
+        "role": "checkbox"
+      },
+      "value": null,
+      "confidence": 0.9,
+      "status": "needs_review",
+      "sensitive": false,
+      "verification": {
+        "type": "checked",
+        "target": {
+          "description": "新建项目表单中的启用提醒复选框",
+          "strategy": "label",
+          "value": "启用提醒",
+          "role": "checkbox"
+        },
+        "expected": "true"
+      }
+    },
+    {
+      "id": "s4",
+      "action": "click",
+      "description": "点击“创建项目”按钮提交表单，创建该项目",
+      "source": {
+        "start_ms": 21883,
+        "end_ms": 24618,
+        "frame_ids": [
+          "frame_008",
+          "frame_009"
+        ]
+      },
+      "target": {
+        "description": "新建项目卡片中的创建项目按钮",
+        "strategy": "role",
+        "value": "创建项目",
+        "role": "button"
+      },
+      "value": null,
+      "confidence": 0.85,
+      "status": "needs_review",
+      "sensitive": true,
+      "verification": {
+        "type": "text",
+        "target": {
+          "description": "项目列表卡片中创建结果统计文字",
+          "strategy": "text",
+          "value": "已创建 1 个项目",
+          "role": null
+        },
+        "expected": "已创建 1 个项目"
+      }
+    },
+    {
+      "id": "s5",
+      "action": "fill",
+      "description": "在“项目列表”的“搜索项目”输入框中填入 Replay-E8A310 以筛选项目（视频中输入的中间过程已合并为一次填充）",
+      "source": {
+        "start_ms": 27353,
+        "end_ms": 41030,
+        "frame_ids": [
+          "frame_010",
+          "frame_011",
+          "frame_012",
+          "frame_015"
+        ]
+      },
+      "target": {
+        "description": "项目列表卡片中的搜索项目输入框",
+        "strategy": "label",
+        "value": "搜索项目",
+        "role": "textbox"
+      },
+      "value": "Replay-E8A310",
+      "confidence": 0.85,
+      "status": "needs_review",
+      "sensitive": false,
+      "verification": {
+        "type": "value",
+        "target": {
+          "description": "项目列表卡片中的搜索项目输入框",
+          "strategy": "label",
+          "value": "搜索项目",
+          "role": "textbox"
+        },
+        "expected": "Replay-E8A310"
+      }
+    }
+  ],
+  "postconditions": [
+    {
+      "type": "text",
+      "target": {
+        "description": "项目列表卡片中的项目条目文本",
+        "strategy": "text",
+        "value": "Replay-E8A310 · 高优先级 · 提醒已开启",
+        "role": null
+      },
+      "expected": "Replay-E8A310 · 高优先级 · 提醒已开启"
+    },
+    {
+      "type": "value",
+      "target": {
+        "description": "项目列表卡片中的搜索项目输入框",
+        "strategy": "label",
+        "value": "搜索项目",
+        "role": "textbox"
+      },
+      "expected": "Replay-E8A310"
+    },
+    {
+      "type": "checked",
+      "target": {
+        "description": "新建项目表单中的启用提醒复选框",
+        "strategy": "label",
+        "value": "启用提醒",
+        "role": "checkbox"
+      },
+      "expected": "true"
+    }
+  ]
+}

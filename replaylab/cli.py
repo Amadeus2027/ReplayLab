@@ -7,7 +7,7 @@ import typer
 
 from .compiler import compile_video
 from .executor import execute as run
-from .executor import read_parameters
+from .executor import read_assertions, read_parameters
 from .exporter import export_skill
 from .models import Workflow
 from .pipeline import analyze as analyze_task
@@ -36,7 +36,13 @@ def compile(task_id: str, start_url: Annotated[str, typer.Option()]):
     store = Store()
     path = store.task(task_id)
     manifest = json.loads((path / "frames.json").read_text())
-    store.save(task_id, compile_video(path, manifest, start_url))
+    try:
+        workflow = compile_video(path, manifest, start_url)
+    except Exception as exc:
+        store.status(task_id, status="failed", error=str(exc))
+        typer.echo(f"Compilation failed: {type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    store.save(task_id, workflow)
     store.status(task_id, status="needs_review", error=None)
     typer.echo(f"Review: replaylab visualize {task_id}")
 
@@ -86,12 +92,18 @@ def execute(
     params_file: Path | None = None,
     confirm_sensitive: bool = False,
     headed: bool = False,
+    expect_file: Path | None = None,
 ):
     """Run a reviewed workflow in a fresh browser, stopping on the first failure."""
     store = Store()
     output = store.task(task_id) / "execution"
     report = run(
-        store.workflow(task_id), output, read_parameters(params_file), confirm_sensitive, headed
+        store.workflow(task_id),
+        output,
+        read_parameters(params_file),
+        confirm_sensitive,
+        headed,
+        expected_checks=read_assertions(expect_file),
     )
     store.status(task_id, status=report["status"])
     print_report(report, output)
@@ -104,11 +116,20 @@ def run_workflow(
     params_file: Path | None = None,
     confirm_sensitive: bool = False,
     headed: bool = False,
+    expect_file: Path | None = None,
 ):
     """Run an exported workflow with the installed ReplayLab runtime."""
     workflow = Workflow.model_validate_json(path.read_text())
     print_report(
-        run(workflow, output, read_parameters(params_file), confirm_sensitive, headed), output
+        run(
+            workflow,
+            output,
+            read_parameters(params_file),
+            confirm_sensitive,
+            headed,
+            expected_checks=read_assertions(expect_file),
+        ),
+        output,
     )
 
 
@@ -116,6 +137,16 @@ def run_workflow(
 def export(task_id: str, output: Path):
     """Export only a workflow whose current version passed execution."""
     typer.echo(str(export_skill(Store().task(task_id), output)))
+
+
+@app.command()
+def validation_report(task_id: str):
+    """Summarize model evidence, review edits and actual execution without model calls."""
+    from .validation import summarize
+
+    path = Store().task(task_id)
+    typer.echo(json.dumps(summarize(path), ensure_ascii=False, indent=2))
+    typer.echo(f"Report: {path / 'validation.json'}")
 
 
 @app.command()

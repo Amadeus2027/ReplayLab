@@ -1,0 +1,6 @@
+{
+  "method": "exact action + visible target text + value, in sequence; not a semantic accuracy benchmark",
+  "expected_steps": 5,
+  "generated_steps": 5,
+  "exact_matches": 5
+}

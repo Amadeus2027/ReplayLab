@@ -44,6 +44,9 @@ export type Task = {
   source: string;
   status: string;
   error?: string;
+  title?: string;
+  step_count?: number;
+  has_media?: boolean;
   workflow?: Workflow;
   evidence?: { duration_ms: number; frames: Frame[] };
   report?: Report;

@@ -1,0 +1,54 @@
+{
+  "attempt_id": "948cb2bef9e7",
+  "source_sha256": "9af8e9efe8a7923724d0de2701a5e537608257bbcce2757b47a820280e824ad0",
+  "max_output_tokens": 8192,
+  "status": "succeeded",
+  "model": "deepseek-flash",
+  "provider_host": "api.deepseek.com",
+  "frame_count": 16,
+  "frame_sha256": {
+    "frame_000": "c214a2993785d7dd1a657bea3f5d1ca0d7cd866f506aad9471b7e271c86ca4f8",
+    "frame_001": "dcbca7a7aa5ac0c4763bf8e372d6c6aad5aee2a74eb947c0f75a539a7dd7a522",
+    "frame_002": "c4fd5efd37a3151b887e3eca29176ee47e9030e5dd744f7fbc780367ac8f99c9",
+    "frame_003": "4174d0daea597152a099c9a24685da04f38cebe625fe9f28c71453a7dc8e163a",
+    "frame_004": "610bcb2eb4065d38dbffd6ccf4674960bbf8528e14a53be6d181f1a5cc108c0d",
+    "frame_005": "7d0e69058c5e3228f47851f7f989151cd04cd1d294ee9e7e95d411007146309c",
+    "frame_006": "1831dc076f4770626deffc940d708c7179ec81b104a8b22df259382b15b337c5",
+    "frame_007": "201e2a8388ca77b6277086659ba30885f0f4c2fccd38b42cfdc376d612a0b915",
+    "frame_008": "7b40c7d2b218b9f2623d48ae1b0d9e942a5ea6dac9991949dca376afa7d281f4",
+    "frame_009": "d24e25efbb50620da0ea2dfc1093e8429e55d618b9c5904b7a70403aa9c1a002",
+    "frame_010": "e2d0b9ad34beef3927d51629ff29b31ea3e7f5e1170ea99b5a3b3c8e4b20c03c",
+    "frame_011": "adb0ca5ded567a3d221fe925482f44511146c87f1ada294d4394de941b8c9959",
+    "frame_012": "61bc4df3df0808a739913c66e86943e2a30413e93ee996f3e8810c609588fe10",
+    "frame_013": "bb12d5b8e0e6bffb53c186ec7e38cc7d4e76d938f8d728ba2cd0d8b0dd9ad9eb",
+    "frame_014": "71a20e639c4450d5465446243175e7f186bddb2337f33dd44d0f31f3d6c39e16",
+    "frame_015": "10d4607f0057e48b5d85433d7e61c3ef6c196f9599a799c5c361d2a45f25fbd4"
+  },
+  "manifest_sha256": "c0e46313e1a5cc9b9efb70f5a91c40d43e7bc4a251b1322a97be1772f6cdbb61",
+  "prompt_sha256": "24f51fee3877a07d4c21ea5cb16da052577cf16d95f57db76a2b05e4e086c622",
+  "schema_sha256": "a8172f918419e8d7bb4f9631fb494fad020e4626f6a9bd1be269a974466b0041",
+  "seconds": 15.033,
+  "response_id": "a3b08f51-5578-477a-8381-20f75f01482e",
+  "usage": {
+    "completion_tokens": 3119,
+    "prompt_tokens": 16519,
+    "total_tokens": 19638,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": null,
+      "audio_tokens": null,
+      "reasoning_tokens": 1933,
+      "rejected_prediction_tokens": null
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": null,
+      "cache_write_tokens": null,
+      "cached_tokens": 128
+    },
+    "prompt_cache_hit_tokens": 128,
+    "prompt_cache_miss_tokens": 16391
+  },
+  "response_model": "deepseek-flash",
+  "finish_reason": "stop",
+  "response_sha256": "8c4aa70af42159313ac375bcb9e6b716031d0d0360b918efbcec409e37cead78",
+  "generated_workflow_digest": "3f7221442682695b14d10b99eb605ff04310c358385c95204f13798fd40ccd8d"
+}

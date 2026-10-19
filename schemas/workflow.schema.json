@@ -3,6 +3,55 @@
   "$defs": {
     "Assertion": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "visible",
+                  "text",
+                  "value",
+                  "checked"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "target": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "target"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "text",
+                  "url",
+                  "value"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "expected": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "expected"
+            ]
+          }
+        }
+      ],
       "properties": {
         "type": {
           "enum": [
