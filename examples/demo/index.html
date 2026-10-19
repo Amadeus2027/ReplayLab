@@ -1,18 +1,478 @@
 <!doctype html>
-<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ReplayLab 项目演示</title>
-<style>body{font:16px system-ui;background:#f3f6f2;color:#26402f;margin:60px auto;max-width:680px;padding:20px}h1{font-size:28px}form,section{background:white;padding:28px;border:1px solid #d8e3d8;border-radius:12px;margin:20px 0}label{display:block;margin:16px 0}input:not([type=checkbox]),select{display:block;padding:10px;margin-top:8px;width:90%;font:inherit;border:1px solid #bdcebf;border-radius:5px}button{padding:12px 24px;background:#316444;color:white;border:0;border-radius:6px;font:inherit}li{padding:14px}</style>
-<h1>项目工作台</h1><p>ReplayLab 的本地可控演示页面。数据只保存在当前页面内存中。</p>
-<form id="form"><h2>新建项目</h2><label for="name">项目名称</label><input id="name" required><label for="priority">优先级</label><select id="priority"><option>普通</option><option>高</option></select><label><input id="notify" type="checkbox"> 启用提醒</label><button>创建项目</button></form>
-<section><h2>项目列表</h2><label>搜索项目<input id="search"></label><p id="status" role="status">尚未创建项目</p><ul id="projects"></ul></section>
-<script>
-const projects = [];
-const $ = id => document.getElementById(id);
-function render() {
-  $('projects').replaceChildren();
-  projects.filter(p => p.name.includes($('search').value)).forEach(p => {
-    const li = document.createElement('li'); li.textContent = `${p.name} · ${p.priority}优先级 · ${p.notify ? '提醒已开启' : '无提醒'}`; $('projects').append(li);
-  });
-}
-$('form').addEventListener('submit', event => { event.preventDefault(); projects.push({ name: $('name').value, priority: $('priority').value, notify: $('notify').checked }); $('status').textContent = `已创建 ${projects.length} 个项目`; render(); });
-$('search').addEventListener('input', render);
-</script></html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>ReplayLab 项目工作台</title>
+    <link rel="stylesheet" href="theme.css" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font:
+          14px -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          "PingFang SC",
+          sans-serif;
+        margin: 0;
+        background: var(--rl-background);
+        color: var(--rl-text);
+        min-height: 100vh;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(ellipse at 12% 10%, #64748622, transparent 48%),
+          radial-gradient(ellipse at 90% 60%, #67638b18, transparent 42%);
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button,
+      a,
+      input,
+      select {
+        outline-offset: 5px;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--rl-accent);
+      }
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+      .app {
+        position: relative;
+        max-width: 1080px;
+        padding: 30px 32px 32px;
+        margin: auto;
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 22px;
+        border-radius: 20px;
+      }
+      .brand {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        font-size: 19px;
+        letter-spacing: -0.7px;
+        font-weight: 600;
+      }
+      .mark {
+        width: 26px;
+        height: 26px;
+        border: 1px solid #b4b5be;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        font-size: 12px;
+        color: #dedeea;
+      }
+      .topbar-right {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        color: #a1a3ae;
+        font-size: 11px;
+      }
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: linear-gradient(130deg, #3d424b, #22242c);
+        border: 1px solid #ffffff20;
+        color: #d1d2db;
+      }
+      .page-title {
+        margin: 46px 2px 29px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .eyebrow {
+        font-size: 9px;
+        letter-spacing: 2px;
+        color: #8f94a1;
+        margin-bottom: 12px;
+      }
+      .page-title h1 {
+        font-size: 30px;
+        letter-spacing: -1px;
+        font-weight: 550;
+      }
+      .page-title p {
+        color: #8f949f;
+        font-size: 12px;
+        margin-top: 12px;
+        line-height: 1.8;
+      }
+      .session-badge {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 10px;
+        color: #a7aea9;
+        border: 1px solid #ffffff14;
+        padding: 7px 11px;
+        border-radius: 20px;
+        background: #ffffff04;
+      }
+      .dot {
+        width: 5px;
+        height: 5px;
+        background: var(--rl-success);
+        border-radius: 50%;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1.06fr;
+        gap: 22px;
+      }
+      form,
+      section {
+        padding: 28px;
+        min-width: 0;
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        margin-bottom: 27px;
+      }
+      .panel-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 11px;
+        background: linear-gradient(140deg, #ffffff16, #ffffff04);
+        border: 1px solid #ffffff18;
+        display: grid;
+        place-items: center;
+        color: #bcbacd;
+        font-size: 21px;
+      }
+      .panel-head h2 {
+        font-size: 16px;
+        font-weight: 500;
+      }
+      .panel-head p {
+        font-size: 10px;
+        color: #858b95;
+        margin-top: 5px;
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        color: #b3b7bf;
+        margin: 20px 0 9px;
+      }
+      input:not([type="checkbox"]),
+      select {
+        width: 100%;
+        color: #e6e8ec;
+        background: #0b0d1299;
+        border: 1px solid #ffffff16;
+        box-shadow: inset 0 1px 3px #0003;
+        border-radius: 11px;
+        padding: 13px 14px;
+        font-size: 13px;
+        transition: border-color 0.2s;
+      }
+      input::placeholder {
+        color: #5c626e;
+      }
+      input:focus,
+      select:focus {
+        border-color: #aa9dbc99;
+      }
+      select {
+        appearance: auto;
+      }
+      label.reminder {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-size: 12px;
+        margin: 24px 0 27px;
+        color: #c3c6d0;
+      }
+      input[type="checkbox"] {
+        width: 15px;
+        height: 15px;
+        accent-color: #c2b9df;
+        margin: 0;
+      }
+      button {
+        width: 100%;
+        padding: 13px 18px;
+        color: #15161a;
+        border: 1px solid #ffffff40;
+        border-radius: 12px;
+        background: linear-gradient(150deg, #eeedf3, #cdcdd8);
+        box-shadow:
+          0 6px 18px #0003,
+          inset 0 1px #fff8;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      button:hover {
+        background: #f2f1f8;
+      }
+      .form-foot {
+        font-size: 9px;
+        text-align: center;
+        color: #747c88;
+        margin-top: 16px;
+        line-height: 1.8;
+      }
+      .count {
+        font-size: 10px;
+        margin-left: auto;
+        display: grid;
+        place-items: center;
+        min-width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        background: #ffffff09;
+        color: #9fa6b0;
+        border: 1px solid #ffffff0d;
+      }
+      #status {
+        color: #89929d;
+        font-size: 10px;
+        line-height: 1.7;
+        margin: 15px 0 0;
+      }
+      #projects {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0 0;
+      }
+      #projects li {
+        line-height: 1.9;
+        font-size: 11px;
+        border: 1px solid #d1e6d91c;
+        border-radius: 13px;
+        padding: 18px 16px 18px 36px;
+        background: linear-gradient(130deg, #a0d3b50c, #ffffff03);
+        color: #c2d1c8;
+        position: relative;
+        overflow-wrap: anywhere;
+      }
+      #projects li::before {
+        content: "";
+        position: absolute;
+        left: 17px;
+        top: 25px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #afc5b4;
+      }
+      #projects li + li {
+        margin-top: 10px;
+      }
+      .empty {
+        min-height: 187px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #737d88;
+        gap: 12px;
+        font-size: 11px;
+      }
+      .empty > span {
+        height: 38px;
+        width: 38px;
+        border: 1px solid #ffffff15;
+        border-radius: 13px;
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        color: #8a8a99;
+        background: #ffffff04;
+      }
+      .empty small {
+        font-size: 10px;
+        color: #565f6a;
+      }
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 15px;
+        margin: 25px 2px 0;
+        color: #626b77;
+        font-size: 9px;
+        line-height: 1.8;
+      }
+      @media (max-width: 720px) {
+        .app {
+          padding: 18px;
+        }
+        .topbar {
+          padding: 14px 17px;
+        }
+        .topbar-right > span:first-child {
+          display: none;
+        }
+        .page-title {
+          margin: 35px 0 24px;
+          align-items: flex-start;
+          gap: 15px;
+        }
+        .page-title h1 {
+          font-size: 26px;
+        }
+        .session-badge {
+          margin-top: 28px;
+          font-size: 8px;
+          white-space: nowrap;
+          padding: 6px 9px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+        form,
+        section {
+          padding: 24px;
+        }
+        .footer {
+          flex-direction: column;
+          gap: 5px;
+        }
+        .empty {
+          min-height: 120px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar rl-glass">
+        <div class="brand">
+          <span class="mark">▷</span>replaylab<span
+            style="
+              font-size: 9px;
+              font-weight: 400;
+              color: #717983;
+              margin: 0 0 0 7px;
+              letter-spacing: 0;
+            "
+            >PROJECTS</span
+          >
+        </div>
+        <div class="topbar-right">
+          <span>个人工作空间</span><span class="avatar">R</span>
+        </div>
+      </header>
+      <div class="page-title">
+        <div>
+          <div class="eyebrow">YOUR NEXT CHAPTER</div>
+          <h1>项目工作台</h1>
+          <p>让每一个想法，都有清晰的下一步。</p>
+        </div>
+        <span class="session-badge"><span class="dot"></span>当前会话</span>
+      </div>
+      <main class="grid">
+        <form id="form" class="rl-glass">
+          <div class="panel-head">
+            <span class="panel-icon">＋</span>
+            <div>
+              <h2>新建项目</h2>
+              <p>从这里，开始你的下一件事。</p>
+            </div>
+          </div>
+          <label for="name">项目名称</label
+          ><input id="name" placeholder="给这个项目起个名字" required /><label
+            for="priority"
+            >优先级</label
+          ><select id="priority">
+            <option>普通</option>
+            <option>高</option></select
+          ><label class="reminder"
+            ><input id="notify" type="checkbox" /> 启用提醒</label
+          ><button>创建项目</button>
+          <p class="form-foot">创建后即可在右侧查看与搜索</p>
+        </form>
+        <section class="rl-glass">
+          <div class="panel-head">
+            <span class="panel-icon">≡</span>
+            <div>
+              <h2>项目列表</h2>
+              <p>你的计划，都在这里。</p>
+            </div>
+            <span id="count" class="count">0</span>
+          </div>
+          <label for="search">搜索项目</label
+          ><input id="search" placeholder="按项目名称查找" />
+          <p id="status" role="status">尚未创建项目</p>
+          <ul id="projects"></ul>
+          <div id="empty" class="empty">
+            <span>◇</span>
+            <p>等待你的第一个项目</p>
+            <small>创建一个项目，让计划开始发生。</small>
+          </div>
+        </section>
+      </main>
+      <footer class="footer">
+        <span>数据仅保存在当前页面内存中 · 刷新后重置</span
+        ><span>ReplayLab 0.1.1 · 本地操作演示</span>
+      </footer>
+    </div>
+    <script>
+      const projects = [];
+      const $ = (id) => document.getElementById(id);
+      function render() {
+        $("projects").replaceChildren();
+        const matches = projects.filter((p) =>
+          p.name.includes($("search").value),
+        );
+        matches.forEach((p) => {
+          const li = document.createElement("li");
+          li.textContent = `${p.name} · ${p.priority}优先级 · ${p.notify ? "提醒已开启" : "无提醒"}`;
+          $("projects").append(li);
+        });
+        $("empty").style.display = matches.length ? "none" : "flex";
+        $("empty").querySelector("p").textContent = projects.length
+          ? "没有匹配的项目"
+          : "等待你的第一个项目";
+        $("count").textContent = projects.length;
+      }
+      $("form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        projects.push({
+          name: $("name").value,
+          priority: $("priority").value,
+          notify: $("notify").checked,
+        });
+        $("status").textContent = `已创建 ${projects.length} 个项目`;
+        render();
+      });
+      $("search").addEventListener("input", render);
+    </script>
+  </body>
+</html>

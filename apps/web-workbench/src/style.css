@@ -8,18 +8,21 @@
     sans-serif;
   font-synthesis: none;
   font-size: 13px;
-  color: #e7e6e8;
-  background: #0b0b0d;
+  color: var(--rl-text);
+  background: var(--rl-background);
   color-scheme: dark;
-  --line: #2a292b;
-  --muted: #807d82;
-  --accent: #c2a8df;
+  --line: var(--rl-border);
+  --muted: var(--rl-muted);
+  --accent: var(--rl-accent);
 }
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
+  background:
+    radial-gradient(ellipse at 20% 0%, #64748612, transparent 50%),
+    radial-gradient(ellipse at 90% 80%, #67638b10, transparent 45%);
 }
 button,
 input,
@@ -66,7 +69,7 @@ svg {
 }
 input {
   border: 1px solid #39373a;
-  border-radius: 7px;
+  border-radius: 11px;
   width: 100%;
   padding: 12px 14px;
   background: #100f11;
@@ -97,15 +100,15 @@ label small {
   justify-content: center;
   gap: 9px;
   padding: 11px 16px;
-  border-radius: 7px;
+  border-radius: 11px;
   font-size: 12px;
   font-weight: 550;
   white-space: nowrap;
 }
 .primary {
-  background: #e8e5df;
+  background: linear-gradient(150deg, #eeedf3, #cdcdd8);
   color: #181818;
-  border: 1px solid #e8e5df;
+  border: 1px solid #ffffff40;
   box-shadow:
     0 1px 3px #0003,
     inset 0 1px #ffffff70;
@@ -159,7 +162,9 @@ label small {
   width: 218px;
   display: flex;
   flex-direction: column;
-  background: #101012;
+  background: #101115b8;
+  -webkit-backdrop-filter: blur(var(--rl-blur));
+  backdrop-filter: blur(var(--rl-blur));
   border-right: 1px solid var(--line);
   padding: 28px 15px 0;
   z-index: 10;
@@ -430,7 +435,10 @@ label small {
 .topbar {
   height: 58px;
   min-height: 58px;
-  border-bottom: 1px solid #2b282d;
+  border-bottom: 1px solid var(--rl-border);
+  background: #14161c70;
+  -webkit-backdrop-filter: blur(var(--rl-blur));
+  backdrop-filter: blur(var(--rl-blur));
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -530,8 +538,11 @@ label small {
 }
 .work-area {
   margin: 0 24px;
-  border: 1px solid #343036;
-  border-radius: 10px;
+  border: 1px solid var(--rl-border);
+  border-radius: var(--rl-radius);
+  box-shadow:
+    0 20px 64px #0003,
+    inset 0 1px #ffffff08;
   overflow: hidden;
   display: flex;
   flex: 1;
@@ -542,7 +553,8 @@ label small {
   flex-direction: column;
   flex: 1;
   min-width: 0;
-  background: #0d0d10;
+  background: radial-gradient(ellipse at 50% 85%, #6864800e, transparent 55%)
+    #0c0d11;
   position: relative;
 }
 .canvas-section {
@@ -559,7 +571,7 @@ label small {
   min-height: 51px;
   padding: 0 18px;
   border-bottom: 1px solid #2e2a30;
-  background: #111114;
+  background: #16181d99;
   z-index: 2;
 }
 .view-switch {
@@ -595,9 +607,9 @@ label small {
 .operation-card {
   width: 220px;
   min-height: 130px;
-  background: #1b1a1c;
-  border: 1px solid #443e45;
-  border-radius: 9px;
+  background: linear-gradient(135deg, #ffffff09, #ffffff02) #1a1c22;
+  border: 1px solid #ffffff20;
+  border-radius: 16px;
   padding: 16px;
   box-shadow:
     0 6px 16px #0003,
@@ -608,8 +620,8 @@ label small {
     background 0.2s;
 }
 .operation-card.is-selected {
-  border-color: #bba0dd;
-  background: #27242a;
+  border-color: #bfb8dc;
+  background: linear-gradient(135deg, #ffffff0b, #ffffff02) #282831;
   box-shadow:
     0 0 0 3px #c7bed209,
     0 6px 15px #0004;
@@ -744,15 +756,45 @@ label small {
 }
 .agent-dock {
   margin: 12px 18px 18px;
-  background: #1b1a1c;
-  border: 1px solid #48414b;
-  border-radius: 9px;
   padding: 17px;
   display: flex;
   align-items: center;
   gap: 13px;
-  box-shadow: 0 4px 25px #0003;
   position: relative;
+}
+.liquid-surface {
+  isolation: isolate;
+}
+.liquid-refraction {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
+}
+/* The upstream component provides inline styles, but no utility stylesheet. */
+.liquid-refraction > * {
+  width: 100% !important;
+  height: 100% !important;
+  transition: none !important;
+}
+.liquid-refraction > .opacity-0 {
+  opacity: 0;
+}
+.liquid-refraction .glass {
+  width: 100%;
+  height: 100%;
+}
+.liquid-content {
+  display: flex;
+  align-items: inherit;
+  flex-wrap: inherit;
+  gap: inherit;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 .agent-avatar {
   height: 35px;
@@ -780,7 +822,7 @@ label small {
   margin-top: 6px;
   line-height: 1.6;
 }
-.agent-dock > .primary {
+.agent-dock .primary {
   font-size: 11px;
   padding: 10px 13px;
 }
@@ -827,7 +869,7 @@ label small {
   width: 316px;
   min-width: 316px;
   border-left: 1px solid #343036;
-  background: #141315;
+  background: linear-gradient(155deg, #ffffff04, transparent) #15171be8;
   display: flex;
   flex-direction: column;
 }
@@ -1378,13 +1420,7 @@ label small {
   max-width: 100%;
   max-height: calc(100dvh - 52px);
   overflow-y: auto;
-  background: #171618;
-  border: 1px solid #423d45;
-  border-radius: 13px;
   padding: 32px;
-  box-shadow:
-    0 25px 100px #0008,
-    inset 0 1px #ffffff04;
 }
 .dialog.wide {
   width: 920px;
@@ -1909,7 +1945,7 @@ label small {
   .agent-dock-copy {
     min-width: 120px;
   }
-  .agent-dock > .primary {
+  .agent-dock .primary {
     width: 100%;
     margin-top: 4px;
   }

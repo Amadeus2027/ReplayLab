@@ -6,6 +6,7 @@
 | FFmpeg | https://ffmpeg.org/ | 直接调用系统 CLI 解码、scene 检测和定点抽帧 |
 | Playwright | https://github.com/microsoft/playwright-python | 浏览器定位、动作、自动等待、断言、截图与演示录制 |
 | React Flow | https://github.com/xyflow/xyflow | 直接使用节点画布、连线、缩放控件 |
+| liquid-glass-react | https://github.com/rdev/liquid-glass-react | MIT；直接复用 SVG 折射组件，用于 Agent 操作栏背景，内容与点击层独立 |
 | Lucide | https://github.com/lucide-icons/lucide | 深色工作台的动作、导航及状态图标，避免自绘图标体系 |
 | React / Vite | https://github.com/facebook/react / https://github.com/vitejs/vite | 工作台与构建 |
 | FastAPI / Pydantic | https://github.com/fastapi/fastapi / https://github.com/pydantic/pydantic | 本机服务、输入约束与协议 Schema |

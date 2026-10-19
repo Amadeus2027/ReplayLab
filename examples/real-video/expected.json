@@ -1,0 +1,28 @@
+[
+  {
+    "type": "visible",
+    "target": {
+      "description": "创建的项目及其设置",
+      "strategy": "text",
+      "value": "Replay-E8A310 · 高优先级 · 提醒已开启"
+    }
+  },
+  {
+    "type": "value",
+    "target": {
+      "description": "搜索内容",
+      "strategy": "label",
+      "value": "搜索项目"
+    },
+    "expected": "Replay-E8A310"
+  },
+  {
+    "type": "text",
+    "target": {
+      "description": "只创建一个项目",
+      "strategy": "text",
+      "value": "已创建 1 个项目"
+    },
+    "expected": "已创建 1 个项目"
+  }
+]

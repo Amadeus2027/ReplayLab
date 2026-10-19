@@ -110,7 +110,7 @@ export function WorkflowCanvas({
   selected: number;
   onSelect: (index: number) => void;
 }) {
-  const [list, setList] = useState(false);
+  const [list, setList] = useState(() => window.matchMedia("(max-width: 720px)").matches);
   const states = new Map(report?.steps.map((step) => [step.id, step.status]));
   const nodes: Operation[] = workflow.steps.map((step, index) => {
     const row = Math.floor(index / 3);

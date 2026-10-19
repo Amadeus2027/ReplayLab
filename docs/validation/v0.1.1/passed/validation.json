@@ -1,0 +1,72 @@
+{
+  "task_id": "d04190152c8e",
+  "status": "passed",
+  "video_duration_ms": 41080,
+  "source_sha256": "9af8e9efe8a7923724d0de2701a5e537608257bbcce2757b47a820280e824ad0",
+  "frame_count": 16,
+  "model": {
+    "status": "succeeded",
+    "name": "deepseek-flash",
+    "provider_host": "api.deepseek.com",
+    "seconds": 15.033,
+    "usage": {
+      "completion_tokens": 3119,
+      "prompt_tokens": 16519,
+      "total_tokens": 19638,
+      "completion_tokens_details": {
+        "accepted_prediction_tokens": null,
+        "audio_tokens": null,
+        "reasoning_tokens": 1933,
+        "rejected_prediction_tokens": null
+      },
+      "prompt_tokens_details": {
+        "audio_tokens": null,
+        "cache_write_tokens": null,
+        "cached_tokens": 128
+      },
+      "prompt_cache_hit_tokens": 128,
+      "prompt_cache_miss_tokens": 16391
+    }
+  },
+  "provenance": {
+    "valid": true,
+    "source_matches": true,
+    "frames_match": true,
+    "manifest_matches": true,
+    "raw_response_matches": true,
+    "raw_workflow_matches": true
+  },
+  "generated_step_count": 5,
+  "review": {
+    "changed_step_ids": [],
+    "added_step_ids": [],
+    "removed_step_ids": [],
+    "step_order_changed": false,
+    "other_fields_changed": [
+      "uncertainties"
+    ]
+  },
+  "recovery_mode": "reviewed_with_changes",
+  "execution": {
+    "status": "passed",
+    "current_workflow_verified": true,
+    "independent_checks_passed": true
+  },
+  "skill_replay": {
+    "status": "passed",
+    "current_workflow_verified": true,
+    "independent_checks_passed": true
+  },
+  "reference_comparison": {
+    "method": "exact action + visible target text + value, in sequence; not a semantic accuracy benchmark",
+    "expected_steps": 5,
+    "generated_steps": 5,
+    "exact_matches": 5
+  },
+  "timings": {
+    "acquire_seconds": 0.003,
+    "frames_seconds": 4.797,
+    "compile_seconds": 15.089,
+    "analysis_seconds": 19.89
+  }
+}

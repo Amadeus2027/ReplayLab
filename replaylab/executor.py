@@ -6,6 +6,7 @@ from pathlib import Path
 from time import perf_counter
 
 from playwright.sync_api import expect, sync_playwright
+from pydantic import TypeAdapter
 
 from .models import Assertion, Target, Workflow, origin
 from .store import digest, write_json
@@ -68,10 +69,16 @@ def execute(
     parameters: dict[str, str] | None = None,
     confirm_sensitive: bool = False,
     headed: bool = False,
+    expected_checks: list[Assertion] | None = None,
 ) -> dict:
     output.mkdir(parents=True, exist_ok=True)
     started = perf_counter()
-    report = {"status": "paused", "workflow_digest": digest(workflow), "steps": []}
+    report = {
+        "status": "paused",
+        "workflow_digest": digest(workflow),
+        "steps": [],
+        "independent_checks": [],
+    }
     browser = None
     try:
         if workflow.uncertainties:
@@ -156,6 +163,11 @@ def execute(
                     write_json(output / "report.json", report)
             for assertion in resolved.postconditions:
                 verify(page, assertion)
+            for index, assertion in enumerate(expected_checks or []):
+                check = {"index": index, "status": "failed"}
+                report["independent_checks"].append(check)
+                verify(page, assertion)
+                check["status"] = "passed"
             report["status"] = "passed"
             report["final_url"] = page.url
             browser.close()
@@ -180,3 +192,7 @@ def read_parameters(path: Path | None) -> dict[str, str]:
     ):
         raise ValueError("Parameters must be a JSON object with string values")
     return values
+
+
+def read_assertions(path: Path | None) -> list[Assertion]:
+    return TypeAdapter(list[Assertion]).validate_json(path.read_text()) if path else []

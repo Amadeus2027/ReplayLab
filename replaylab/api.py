@@ -26,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from . import __version__
 from .executor import execute
 from .exporter import export_skill
 from .models import Model, Workflow, origin
@@ -114,7 +115,7 @@ def create_app(store: Store | None = None) -> FastAPI:
 
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "version": "0.1.0"}
+        return {"status": "ok", "version": __version__}
 
     @app.get("/api/tasks", dependencies=auth)
     def tasks():

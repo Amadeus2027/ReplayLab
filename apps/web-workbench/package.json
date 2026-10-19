@@ -1,7 +1,7 @@
 {
   "name": "replaylab-workbench",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.8.0",
+    "liquid-glass-react": "^1.1.1",
     "lucide-react": "^1.59.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"

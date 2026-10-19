@@ -28,6 +28,8 @@ export REPLAYLAB_MODEL='你的视觉模型名称'
 
 需要支持 Chat Completions、图片 data URL 和 `response_format=json_object` 的视觉模型。可以接入具备这些接口的华为云端点；本项目尚未验证具体华为云模型，不能假定所有端点兼容。`.env.example` 仅作说明，程序不会自动加载 `.env`。
 
+v0.1.1 已用 DeepSeek 官方接口完成一次受控真实录屏的端到端验证：设置 `REPLAYLAB_BASE_URL=https://api.deepseek.com`、`REPLAYLAB_MODEL=deepseek-flash`，再通过环境安全配置密钥。最小样本、实际结果与复现命令见 [v0.1.1 实验](validation/v0.1.1/README.md)。
+
 每次分析最多发送 32 张 1280 像素宽画面，使用单次模型请求、不自动重试。请先确认该服务的图片数/上下文限制和计费方式。未配置模型时，抽帧可以保留，但不会生成替代或模拟工作流。
 
 ## 分析、审核、执行
@@ -97,9 +99,13 @@ python scripts/smoke_demo.py
 - `workflow.json`：唯一工作流协议；JSON Schema 位于 `schemas/workflow.schema.json`。
 - `frames.json` / `frames/`：时间戳及画面证据。
 - `model-response.txt`：实际模型原始输出，供定位协议错误。
+- `inference.json` / `inference-attempts/`：当前及历史调用的响应 ID、模型、耗时、token 用量与证据摘要，不含密钥。
+- `workflow.generated.json`：模型首次生成的流程快照；审核修改 `workflow.json`，不要改写该快照。
 - `timings.json`：获取、抽帧、编译和总分析耗时。
 - `execution/report.json` / `execution/*.png`：执行耗时、步骤结果及截图。
 - 导出目录：`SKILL.md`、`workflow.json`、`verification.json`、`scripts/run.py`。
+
+`replaylab validation-report TASK_ID` 汇总模型证据、人工修改与实际执行。`replaylab execute` / `run-workflow` 支持可选 `--expect-file`，用外部提供的 Assertion 数组检查独立最终状态。实验工具只有在真实模型溯源、新会话执行和 Skill 重放都有效，且均通过独立断言时才报告完整通过；普通执行报告不自动代表真实视频逆向验收通过。
 
 任务目录、截图、参数文件和令牌可能包含私人内容；本地任务目录与 `.env` 已排除出 Git。请将自行创建的参数文件放在任务目录等不会提交的位置。
 

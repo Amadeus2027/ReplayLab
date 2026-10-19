@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "workflow_digest": "5ad3b9c9fc4140e85f2bf2b86a03494463a73b07a319ffa68795e0af015c98a6",
+  "steps": [
+    {
+      "id": "s1",
+      "status": "passed",
+      "seconds": 0.186,
+      "screenshot": "s1.png"
+    },
+    {
+      "id": "s2",
+      "status": "passed",
+      "seconds": 0.042,
+      "screenshot": "s2.png"
+    },
+    {
+      "id": "s3",
+      "status": "passed",
+      "seconds": 0.048,
+      "screenshot": "s3.png"
+    },
+    {
+      "id": "s4",
+      "status": "passed",
+      "seconds": 0.061,
+      "screenshot": "s4.png"
+    },
+    {
+      "id": "s5",
+      "status": "passed",
+      "seconds": 0.035,
+      "screenshot": "s5.png"
+    }
+  ],
+  "independent_checks": [
+    {
+      "index": 0,
+      "status": "passed"
+    },
+    {
+      "index": 1,
+      "status": "passed"
+    },
+    {
+      "index": 2,
+      "status": "passed"
+    }
+  ],
+  "seconds": 3.154,
+  "final_url": "http://127.0.0.1:8891/"
+}

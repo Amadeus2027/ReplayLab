@@ -3,6 +3,7 @@ import re
 import shutil
 from pathlib import Path
 
+from . import __version__
 from .models import Workflow
 from .store import digest, write_json
 
@@ -47,7 +48,7 @@ description: Replay a reviewed browser workflow recovered from a demonstration v
 
 1. Read `workflow.json`, including preconditions, allowed origins, parameters and sensitive steps.
 2. Explain the concrete actions to the user and obtain authorization for the task.
-3. Install ReplayLab 0.1 and its Playwright browser if absent. The runtime is an external dependency.
+3. Install ReplayLab {__version__} and its Playwright browser if absent. The runtime is an external dependency.
 4. Run `python scripts/run.py --params-file /path/to/parameters.json` from this skill directory.
    Omit `--params-file` when no parameters are required. Parameter files are JSON string maps.
 5. Add `--confirm-sensitive` only when the user explicitly authorizes the sensitive actions.

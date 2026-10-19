@@ -1,0 +1,12 @@
+{
+  "source_task": "d04190152c8e",
+  "workflow_digest": "5ad3b9c9fc4140e85f2bf2b86a03494463a73b07a319ffa68795e0af015c98a6",
+  "workflow_changed": false,
+  "new_model_calls": 0,
+  "execution_status": "passed",
+  "execution_seconds": 3.154,
+  "skill_status": "passed",
+  "skill_seconds": 2.486,
+  "independent_checks_per_run": 3,
+  "note": "Historical source video was recorded with the previous light demo. The same approved model workflow was replayed on the redesigned dark demo, without changing targets or values."
+}

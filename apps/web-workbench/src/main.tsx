@@ -27,6 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { Dialog, CreateDialog, RunDialog } from "./dialogs";
+import { LiquidSurface } from "./LiquidSurface";
 import {
   WorkflowCanvas,
   actionIcons,
@@ -35,6 +36,7 @@ import {
 } from "./WorkflowCanvas";
 import type { Task, Workflow, Frame, Step } from "./types";
 import "@xyflow/react/dist/style.css";
+import "../../../examples/demo/theme.css";
 import "./style.css";
 
 const statusNames: Record<string, string> = {
@@ -318,7 +320,7 @@ function App() {
             <span />
           </span>
           <strong>
-            replaylab<span>0.1</span>
+            replaylab<span>0.1.1</span>
           </strong>
         </button>
         <div className="workspace-picker">
@@ -381,7 +383,7 @@ function App() {
         </nav>
         <div className="sidebar-bottom">
           <a
-            href="https://github.com/Amadeus2027/ReplayLab/blob/feat/v0.1-core/docs/quickstart.md"
+            href="https://github.com/Amadeus2027/ReplayLab/blob/main/docs/quickstart.md"
             target="_blank"
             rel="noreferrer"
           >
@@ -402,7 +404,7 @@ function App() {
               个人工作空间
               <small>{connected ? "本机服务已连接" : "等待连接本机服务"}</small>
             </div>
-            <span className="version">v0.1</span>
+            <span className="version">v0.1.1</span>
           </div>
         </div>
       </aside>
@@ -599,7 +601,9 @@ function App() {
                   selected={selected}
                   onSelect={setSelected}
                 />
-                <div className={`agent-dock ${executing ? "executing" : ""}`}>
+                <LiquidSurface
+                  className={`agent-dock ${executing ? "executing" : ""}`}
+                >
                   <span className="agent-avatar">
                     <Sparkles size={19} />
                   </span>
@@ -653,7 +657,7 @@ function App() {
                         ? "再次执行"
                         : "让 Agent 执行"}
                   </button>
-                </div>
+                </LiquidSurface>
                 {(report?.status === "failed" ||
                   report?.status === "paused") && (
                   <div className="execution-issue">
@@ -883,7 +887,7 @@ function App() {
               </span>
               <span>
                 你来确认，Agent 来完成。<span className="footer-dot">·</span>
-                ReplayLab 0.1
+                ReplayLab 0.1.1
               </span>
             </footer>
           </>
@@ -1065,7 +1069,7 @@ function ConnectionSettings({
         </div>
         <div className="dialog-footer">
           <a
-            href="https://github.com/Amadeus2027/ReplayLab/blob/feat/v0.1-core/docs/quickstart.md"
+            href="https://github.com/Amadeus2027/ReplayLab/blob/main/docs/quickstart.md"
             target="_blank"
             rel="noreferrer"
           >

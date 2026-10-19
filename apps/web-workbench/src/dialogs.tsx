@@ -44,7 +44,7 @@ export function Dialog({
       <section
         ref={element}
         tabIndex={-1}
-        className={`dialog ${wide ? "wide" : ""}`}
+        className={`dialog rl-glass ${wide ? "wide" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
